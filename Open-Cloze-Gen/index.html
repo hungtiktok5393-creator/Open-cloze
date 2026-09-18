@@ -2,7 +2,7 @@
 <html lang="vi" class="light">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>English Open Cloze Generator</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -29,30 +29,73 @@
     <!-- JS Confetti -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
+        /* Tối ưu hóa tương tác chạm di động */
+        * {
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        /* Hiệu ứng bấm nút chung (Active State) */
+        button, a, select, input[type="checkbox"], .touch-effect {
+            transition: transform 0.1s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        
+        button:active:not(:disabled), 
+        a:active, 
+        .word-token:active {
+            transform: scale(0.96) !important;
+        }
+
+        /* Chỉ áp dụng hiệu ứng Hover trên thiết bị có con trỏ (PC) */
+        @media (hover: hover) {
+            .btn-hover-effect:hover {
+                filter: brightness(0.95);
+            }
+        }
+
         .word-token {
             transition: all 0.15s ease;
             user-select: none;
+            -webkit-user-select: none;
+            display: inline-block;
+            padding: 2px 4px;
+            margin: 1px 0;
+            border-radius: 0.375rem;
         }
         .word-token.selected {
             background-color: #3b82f6;
             color: white;
             font-weight: 600;
-            border-radius: 0.25rem;
-            padding: 0 4px;
         }
         .dark .word-token.selected {
             background-color: #60a5fa;
             color: #0f172a;
         }
+
+        /* Tối ưu hóa hiển thị dòng điền từ trên di động */
+        .gap-container {
+            display: inline-flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.25rem;
+            margin: 0.25rem 0;
+            padding: 0.25rem;
+            background-color: rgba(241, 245, 249, 0.8);
+            border-radius: 0.75rem;
+            vertical-align: middle;
+        }
+        .dark .gap-container {
+            background-color: rgba(30, 41, 59, 0.8);
+        }
     </style>
 </head>
-<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen transition-colors duration-200 flex flex-col font-sans">
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen transition-colors duration-200 flex flex-col font-sans selection:bg-blue-500 selection:text-white">
 
     <!-- HEADER -->
     <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-30 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div class="flex items-center gap-3">
-                <div class="bg-blue-600 text-white p-2 rounded-lg flex items-center justify-center">
+                <div class="bg-blue-600 text-white p-2 rounded-xl flex items-center justify-center shadow-sm">
                     <i class="fa-solid fa-graduation-cap text-xl"></i>
                 </div>
                 <div>
@@ -63,26 +106,26 @@
 
             <div class="flex items-center gap-2 sm:gap-3">
                 <!-- Nút Tải lại từ data.json -->
-                <button onclick="reloadFromDataJson(true)" title="Tải lại cài đặt và bài đọc từ file data.json gốc" class="px-3 py-2 text-sm font-medium rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/50 flex items-center gap-2 transition">
+                <button onclick="reloadFromDataJson(true)" title="Tải lại cài đặt và bài đọc từ file data.json gốc" class="px-3 py-2 text-sm font-medium rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-700 active:bg-blue-200 dark:active:bg-blue-900/80 flex items-center gap-2 transition">
                     <i class="fa-solid fa-rotate text-blue-600 dark:text-blue-400"></i>
                     <span class="hidden sm:inline">Tải lại từ data.json</span>
                 </button>
 
                 <!-- Nút Xuất Dữ Liệu -->
-                <button onclick="exportDataToJson()" title="Xuất toàn bộ bài tập & bộ từ ra file data.json" class="px-3 py-2 text-sm font-medium rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 flex items-center gap-2 transition">
+                <button onclick="exportDataToJson()" title="Xuất toàn bộ bài tập & bộ từ ra file data.json" class="px-3 py-2 text-sm font-medium rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 active:bg-emerald-200 dark:active:bg-emerald-900/80 flex items-center gap-2 transition">
                     <i class="fa-solid fa-file-export text-emerald-600 dark:text-emerald-400"></i>
                     <span class="hidden sm:inline">Xuất dữ liệu</span>
                 </button>
 
                 <!-- Nút Quản Lý Bộ Từ -->
-                <button id="btnOpenWordlistsModal" onclick="openWordlistsModal()" class="px-3 py-2 text-sm font-medium rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 transition">
+                <button id="btnOpenWordlistsModal" onclick="openWordlistsModal()" class="px-3 py-2 text-sm font-medium rounded-xl border border-slate-300 dark:border-slate-600 active:bg-slate-200 dark:active:bg-slate-700 flex items-center gap-2 transition">
                     <i class="fa-solid fa-book text-blue-500"></i>
                     <span class="hidden md:inline">Bộ từ mục tiêu</span>
                     <span id="activeWordlistBadge" class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs px-2 py-0.5 rounded-full font-semibold">Default</span>
                 </button>
 
                 <!-- Nút Đổi Theme Light/Dark -->
-                <button id="themeToggleBtn" onclick="toggleDarkMode()" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition">
+                <button id="themeToggleBtn" onclick="toggleDarkMode()" class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 active:bg-slate-300 dark:active:bg-slate-600 transition">
                     <i class="fa-solid fa-moon dark:hidden"></i>
                     <i class="fa-solid fa-sun hidden dark:block text-amber-400"></i>
                 </button>
@@ -97,21 +140,21 @@
         <section id="screenSetup" class="space-y-6">
             
             <!-- TOOLBAR -->
-            <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col lg:flex-row gap-4 justify-between items-stretch lg:items-center">
+            <div class="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col lg:flex-row gap-4 justify-between items-stretch lg:items-center">
                 <div class="flex flex-wrap items-center gap-2">
-                    <button onclick="addNewCard()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm transition">
+                    <button onclick="addNewCard()" class="px-4 py-2.5 bg-blue-600 active:bg-blue-700 text-white rounded-xl text-sm font-medium flex items-center gap-2 shadow-sm transition">
                         <i class="fa-solid fa-plus"></i> Thêm thẻ mới
                     </button>
-                    <button onclick="selectAllCards(true)" class="px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg text-sm font-medium transition">
+                    <button onclick="selectAllCards(true)" class="px-3 py-2.5 bg-slate-100 dark:bg-slate-700 active:bg-slate-200 dark:active:bg-slate-600 rounded-xl text-sm font-medium transition">
                         <i class="fa-solid fa-check-double mr-1"></i> Chọn tất cả
                     </button>
-                    <button onclick="selectAllCards(false)" class="px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg text-sm font-medium transition">
+                    <button onclick="selectAllCards(false)" class="px-3 py-2.5 bg-slate-100 dark:bg-slate-700 active:bg-slate-200 dark:active:bg-slate-600 rounded-xl text-sm font-medium transition">
                         Bỏ chọn
                     </button>
                     
                     <!-- Level Filter Dropdown -->
-                    <div class="relative inline-block text-left">
-                        <select id="levelFilterSelect" onchange="filterByLevel(this.value)" class="px-3 py-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none">
+                    <div class="relative inline-block text-left flex-1 sm:flex-none">
+                        <select id="levelFilterSelect" onchange="filterByLevel(this.value)" class="w-full sm:w-auto px-3 py-2.5 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none">
                             <option value="">Lọc/Chọn theo cấp độ...</option>
                             <option value="A1">Cấp độ A1</option>
                             <option value="A2">Cấp độ A2</option>
@@ -127,7 +170,7 @@
                     <span class="text-sm font-medium text-slate-500 dark:text-slate-400">
                         Đã chọn: <strong id="selectedCount" class="text-blue-600 dark:text-blue-400">0</strong> thẻ
                     </span>
-                    <button id="btnStartPractice" onclick="startPractice()" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg shadow-md transition flex items-center gap-2">
+                    <button id="btnStartPractice" onclick="startPractice()" class="px-6 py-3 bg-emerald-600 active:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-md transition flex items-center gap-2">
                         <i class="fa-solid fa-play"></i> Bắt đầu luyện tập
                     </button>
                 </div>
@@ -143,26 +186,26 @@
         <section id="screenPractice" class="hidden space-y-6 max-w-4xl mx-auto">
             
             <!-- HEADER BAR -->
-            <div class="flex items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                <button onclick="exitPractice()" class="px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg flex items-center gap-1.5 transition">
+            <div class="flex items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                <button onclick="exitPractice()" class="px-3.5 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 active:bg-slate-100 dark:active:bg-slate-700 rounded-xl flex items-center gap-1.5 transition">
                     <i class="fa-solid fa-arrow-left"></i> Quay lại Setup
                 </button>
 
                 <div class="flex items-center gap-3">
-                    <span id="practiceLevelBadge" class="px-2.5 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-semibold rounded-md">B1</span>
+                    <span id="practiceLevelBadge" class="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-bold rounded-lg">B1</span>
                     <span id="practiceProgress" class="text-sm font-medium text-slate-500">Bài 1 / 3</span>
                 </div>
             </div>
 
             <!-- CARD EXERCISE CONTENT -->
-            <div class="bg-white dark:bg-slate-800 p-6 sm:p-8 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-md space-y-6">
+            <div class="bg-white dark:bg-slate-800 p-5 sm:p-8 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-md space-y-6">
                 <div>
-                    <h2 id="practiceCardTitle" class="text-xl font-bold text-slate-900 dark:text-white mb-1">Tên bài đọc</h2>
-                    <p class="text-xs text-slate-400">Chọn 1 trong 4 đáp án đúng cho mỗi chỗ trống.</p>
+                    <h2 id="practiceCardTitle" class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mb-1">Tên bài đọc</h2>
+                    <p class="text-xs sm:text-sm text-slate-400">Chọn 1 trong 4 đáp án đúng cho mỗi chỗ trống.</p>
                 </div>
 
                 <!-- PASSAGE CONTAINER -->
-                <div id="exercisePassage" class="text-base sm:text-lg leading-relaxed space-y-4 text-slate-800 dark:text-slate-200">
+                <div id="exercisePassage" class="text-base sm:text-lg leading-relaxed sm:leading-loose space-y-4 text-slate-800 dark:text-slate-200">
                     <!-- Cloze Passage Dynamic Content -->
                 </div>
 
@@ -179,10 +222,10 @@
 
                 <!-- ACTION BUTTONS -->
                 <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
-                    <button id="btnCheckAnswer" onclick="checkAnswers()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow transition flex items-center gap-2">
+                    <button id="btnCheckAnswer" onclick="checkAnswers()" class="w-full sm:w-auto px-6 py-3 bg-blue-600 active:bg-blue-700 text-white font-bold rounded-xl shadow transition flex items-center justify-center gap-2">
                         <i class="fa-solid fa-check"></i> Kiểm tra kết quả
                     </button>
-                    <button id="btnNextExercise" onclick="nextExercise()" class="hidden px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow transition flex items-center gap-2">
+                    <button id="btnNextExercise" onclick="nextExercise()" class="hidden w-full sm:w-auto px-6 py-3 bg-emerald-600 active:bg-emerald-700 text-white font-bold rounded-xl shadow transition flex items-center justify-center gap-2">
                         Tiếp theo <i class="fa-solid fa-arrow-right"></i>
                     </button>
                 </div>
@@ -198,24 +241,24 @@
                 <h3 class="font-bold text-lg flex items-center gap-2">
                     <i class="fa-solid fa-book text-blue-500"></i> Quản lý Bộ từ Mục tiêu
                 </h3>
-                <button onclick="closeWordlistsModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xl">
+                <button onclick="closeWordlistsModal()" class="p-2 text-slate-400 active:text-slate-600 dark:active:text-white text-xl rounded-lg">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
 
-            <div class="p-6 overflow-y-auto space-y-6 flex-1">
+            <div class="p-5 sm:p-6 overflow-y-auto space-y-6 flex-1">
                 <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
                     <div class="flex-1">
                         <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Chọn Bộ từ đang chỉnh sửa:</label>
-                        <select id="wordlistSelect" onchange="onWordlistSelectChange()" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none">
+                        <select id="wordlistSelect" onchange="onWordlistSelectChange()" class="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none">
                             <!-- Dynamic Options -->
                         </select>
                     </div>
                     <div class="flex gap-2">
-                        <button onclick="createNewWordlistPrompt()" class="px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-sm font-medium rounded-lg transition flex items-center gap-1">
+                        <button onclick="createNewWordlistPrompt()" class="flex-1 sm:flex-initial px-4 py-2.5 bg-slate-100 dark:bg-slate-700 active:bg-slate-200 dark:active:bg-slate-600 text-sm font-medium rounded-xl transition flex items-center justify-center gap-1">
                             <i class="fa-solid fa-plus"></i> Tạo mới
                         </button>
-                        <button onclick="deleteCurrentWordlist()" class="px-3 py-2 bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 hover:bg-rose-200 text-sm font-medium rounded-lg transition">
+                        <button onclick="deleteCurrentWordlist()" class="px-4 py-2.5 bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 active:bg-rose-200 text-sm font-medium rounded-xl transition">
                             <i class="fa-solid fa-trash"></i>
                         </button>
                     </div>
@@ -231,8 +274,8 @@
             </div>
 
             <div class="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex justify-end gap-3">
-                <button onclick="closeWordlistsModal()" class="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg">Hủy</button>
-                <button onclick="saveCurrentWordlist()" class="px-5 py-2 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow transition">Lưu bộ từ</button>
+                <button onclick="closeWordlistsModal()" class="px-4 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 active:bg-slate-200 dark:active:bg-slate-700 rounded-xl">Hủy</button>
+                <button onclick="saveCurrentWordlist()" class="px-5 py-2.5 text-sm font-bold bg-blue-600 active:bg-blue-700 text-white rounded-xl shadow transition">Lưu bộ từ</button>
             </div>
         </div>
     </div>
@@ -243,26 +286,26 @@
             <div class="p-5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
                 <div>
                     <h3 class="font-bold text-lg">Tự chọn từ làm chỗ trống</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">Bấm trực tiếp vào các từ trong đoạn văn để chọn/bỏ chọn làm chỗ trống.</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Chạm trực tiếp vào các từ trong đoạn văn để chọn/bỏ chọn làm chỗ trống.</p>
                 </div>
-                <button onclick="closeManualSelectModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xl">
+                <button onclick="closeManualSelectModal()" class="p-2 text-slate-400 active:text-slate-600 dark:active:text-white text-xl rounded-lg">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
 
-            <div class="p-6 overflow-y-auto flex-1">
+            <div class="p-4 sm:p-6 overflow-y-auto flex-1">
                 <div id="manualWordInteractiveArea" class="text-base sm:text-lg leading-relaxed p-4 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-700 select-none">
                     <!-- Clickable words rendered here -->
                 </div>
             </div>
 
-            <div class="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between">
-                <div class="text-sm text-slate-500">
+            <div class="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between gap-2">
+                <div class="text-xs sm:text-sm text-slate-500">
                     Đã chọn: <strong id="manualSelectedCount" class="text-blue-600 dark:text-blue-400">0</strong> từ
                 </div>
                 <div class="flex gap-2">
-                    <button onclick="clearManualSelections()" class="px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg">Xóa hết chọn</button>
-                    <button onclick="saveManualSelection()" class="px-5 py-2 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow transition">Xác nhận & Lưu</button>
+                    <button onclick="clearManualSelections()" class="px-3 py-2 text-xs font-medium text-rose-600 active:bg-rose-50 dark:active:bg-rose-950/30 rounded-xl">Xóa hết</button>
+                    <button onclick="saveManualSelection()" class="px-4 py-2.5 text-sm font-bold bg-blue-600 active:bg-blue-700 text-white rounded-xl shadow transition">Xác nhận & Lưu</button>
                 </div>
             </div>
         </div>
@@ -434,7 +477,7 @@
 
             state.cards.forEach((card) => {
                 const cardEl = document.createElement('div');
-                cardEl.className = `bg-white dark:bg-slate-800 rounded-2xl border ${card.selected ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-slate-200 dark:border-slate-700'} p-5 shadow-sm hover:shadow-md transition relative flex flex-col justify-between space-y-4`;
+                cardEl.className = `bg-white dark:bg-slate-800 rounded-2xl border ${card.selected ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-slate-200 dark:border-slate-700'} p-5 shadow-sm active:shadow-md transition relative flex flex-col justify-between space-y-4`;
 
                 const wordlistOptions = Object.values(state.wordlists).map(wl => 
                     `<option value="${wl.id}" ${card.wordlistId === wl.id ? 'selected' : ''}>${wl.name}</option>`
@@ -444,10 +487,10 @@
                     <div class="space-y-3">
                         <div class="flex items-start justify-between gap-2">
                             <div class="flex items-center gap-3 flex-1">
-                                <input type="checkbox" ${card.selected ? 'checked' : ''} onchange="toggleCardSelection('${card.id}')" class="w-5 h-5 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer">
+                                <input type="checkbox" ${card.selected ? 'checked' : ''} onchange="toggleCardSelection('${card.id}')" class="w-5 h-5 text-blue-600 rounded-md border-slate-300 focus:ring-blue-500 cursor-pointer">
                                 <input type="text" value="${escapeHtml(card.title)}" onchange="updateCardTitle('${card.id}', this.value)" placeholder="Tên thẻ bài tập..." class="font-bold text-slate-800 dark:text-white bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-500 outline-none w-full text-base">
                             </div>
-                            <button onclick="deleteCard('${card.id}')" class="text-slate-400 hover:text-rose-500 transition p-1">
+                            <button onclick="deleteCard('${card.id}')" class="text-slate-400 active:text-rose-500 transition p-1.5 rounded-lg">
                                 <i class="fa-solid fa-trash-can"></i>
                             </button>
                         </div>
@@ -455,25 +498,25 @@
                         <div class="grid grid-cols-2 gap-2 text-xs">
                             <div>
                                 <label class="block text-slate-400 mb-1">Cấp độ:</label>
-                                <select onchange="updateCardLevel('${card.id}', this.value)" class="w-full px-2 py-1.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg font-medium outline-none">
+                                <select onchange="updateCardLevel('${card.id}', this.value)" class="w-full px-2 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl font-medium outline-none">
                                     ${['A1','A2','B1','B2','C1','C2'].map(lvl => `<option value="${lvl}" ${card.level === lvl ? 'selected' : ''}>${lvl}</option>`).join('')}
                                 </select>
                             </div>
                             <div>
                                 <label class="block text-slate-400 mb-1">Bộ từ áp dụng:</label>
-                                <select onchange="updateCardWordlist('${card.id}', this.value)" class="w-full px-2 py-1.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg font-medium outline-none truncate">
+                                <select onchange="updateCardWordlist('${card.id}', this.value)" class="w-full px-2 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl font-medium outline-none truncate">
                                     ${wordlistOptions}
                                 </select>
                             </div>
                         </div>
 
-                        <div class="flex items-center justify-between text-xs bg-slate-50 dark:bg-slate-700/50 p-2 rounded-lg border border-slate-100 dark:border-slate-700">
+                        <div class="flex items-center justify-between text-xs bg-slate-50 dark:bg-slate-700/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-700">
                             <span class="text-slate-500 dark:text-slate-400">Chế độ chọn từ:</span>
-                            <div class="flex items-center gap-2">
-                                <button onclick="setCardMode('${card.id}', 'auto')" class="px-2 py-1 rounded ${card.mode === 'auto' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'} transition">
+                            <div class="flex items-center gap-1.5">
+                                <button onclick="setCardMode('${card.id}', 'auto')" class="px-2.5 py-1 rounded-lg ${card.mode === 'auto' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-600 dark:text-slate-300 active:bg-slate-200 dark:active:bg-slate-600'} transition">
                                     Tự động
                                 </button>
-                                <button onclick="setCardMode('${card.id}', 'manual')" class="px-2 py-1 rounded ${card.mode === 'manual' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'} transition">
+                                <button onclick="setCardMode('${card.id}', 'manual')" class="px-2.5 py-1 rounded-lg ${card.mode === 'manual' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-600 dark:text-slate-300 active:bg-slate-200 dark:active:bg-slate-600'} transition">
                                     Thủ công (${card.manualWords ? card.manualWords.length : 0})
                                 </button>
                             </div>
@@ -485,7 +528,7 @@
                     </div>
 
                     ${card.mode === 'manual' ? `
-                        <button onclick="openManualSelectModal('${card.id}')" class="w-full py-2 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-300 hover:bg-blue-100 rounded-lg text-xs font-semibold border border-blue-200 dark:border-blue-800 transition flex items-center justify-center gap-1.5">
+                        <button onclick="openManualSelectModal('${card.id}')" class="w-full py-2.5 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-300 active:bg-blue-100 rounded-xl text-xs font-semibold border border-blue-200 dark:border-blue-800 transition flex items-center justify-center gap-1.5">
                             <i class="fa-solid fa-hand-pointer"></i> Chọn từ thủ công trong đoạn
                         </button>
                     ` : ''}
@@ -698,7 +741,7 @@
                     const currentIndex = wordIndex;
                     const span = document.createElement('span');
                     span.innerText = token;
-                    span.className = `word-token cursor-pointer border-b-2 border-transparent hover:border-blue-400 ${tempManualSelectedIndices.has(currentIndex) ? 'selected' : ''}`;
+                    span.className = `word-token cursor-pointer ${tempManualSelectedIndices.has(currentIndex) ? 'selected' : ''}`;
                     
                     span.onclick = () => {
                         if (tempManualSelectedIndices.has(currentIndex)) {
@@ -898,29 +941,29 @@
                     const gapInfo = data.clozeGaps.find(g => g.gapId === token.gapId);
                     
                     const gapSpan = document.createElement('span');
-                    gapSpan.className = 'inline-flex items-center gap-1 my-1 px-1 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-300 dark:border-slate-600 align-middle';
+                    gapSpan.className = 'gap-container';
 
                     if (token.prefixPunct) gapSpan.appendChild(document.createTextNode(token.prefixPunct));
 
                     const btnGroup = document.createElement('div');
-                    btnGroup.className = 'inline-flex gap-1 py-0.5';
+                    btnGroup.className = 'inline-flex flex-wrap gap-1 py-0.5';
 
                     gapInfo.options.forEach(opt => {
                         const btn = document.createElement('button');
                         btn.type = 'button';
                         btn.dataset.gapId = token.gapId;
                         btn.dataset.optionValue = opt;
-                        btn.className = `option-btn-${token.gapId} px-2.5 py-1 text-xs sm:text-sm font-semibold rounded-md border transition-all duration-150 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-500 hover:bg-blue-50 dark:hover:bg-slate-600`;
+                        btn.className = `option-btn-${token.gapId} px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg border transition-all duration-100 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-500 active:scale-95 shadow-sm`;
                         btn.innerText = opt;
 
                         btn.onclick = () => {
                             document.querySelectorAll(`.option-btn-${token.gapId}`).forEach(b => {
-                                b.classList.remove('bg-blue-600', 'text-white', 'border-blue-600', 'shadow-sm');
+                                b.classList.remove('bg-blue-600', 'text-white', 'border-blue-600', 'shadow-md', 'scale-105');
                                 b.classList.add('bg-white', 'dark:bg-slate-700', 'text-slate-700', 'dark:text-slate-200', 'border-slate-300', 'dark:border-slate-500');
                             });
 
                             btn.classList.remove('bg-white', 'dark:bg-slate-700', 'text-slate-700', 'dark:text-slate-200', 'border-slate-300', 'dark:border-slate-500');
-                            btn.classList.add('bg-blue-600', 'text-white', 'border-blue-600', 'shadow-sm');
+                            btn.classList.add('bg-blue-600', 'text-white', 'border-blue-600', 'shadow-md');
 
                             practiceState.userAnswers[token.gapId] = opt;
                         };
@@ -955,13 +998,13 @@
                     const optVal = btn.dataset.optionValue;
 
                     if (optVal.toLowerCase() === gap.correctAnswer.toLowerCase()) {
-                        btn.className = 'px-2.5 py-1 text-xs sm:text-sm font-bold rounded-md bg-emerald-600 text-white border-emerald-600 shadow-sm flex items-center gap-1 cursor-default';
+                        btn.className = 'px-3 py-1.5 text-xs sm:text-sm font-bold rounded-lg bg-emerald-600 text-white border-emerald-600 shadow-sm flex items-center gap-1 cursor-default';
                         btn.innerHTML = `<i class="fa-solid fa-check text-xs"></i> ${optVal}`;
                     } else if (userAnswer && optVal.toLowerCase() === userAnswer.toLowerCase() && !isCorrect) {
-                        btn.className = 'px-2.5 py-1 text-xs sm:text-sm font-bold rounded-md bg-rose-600 text-white border-rose-600 shadow-sm line-through opacity-90 cursor-default';
+                        btn.className = 'px-3 py-1.5 text-xs sm:text-sm font-bold rounded-lg bg-rose-600 text-white border-rose-600 shadow-sm line-through opacity-90 cursor-default';
                         btn.innerHTML = `<i class="fa-solid fa-xmark text-xs"></i> ${optVal}`;
                     } else {
-                        btn.className = 'px-2.5 py-1 text-xs sm:text-sm font-medium rounded-md bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 opacity-50 cursor-default';
+                        btn.className = 'px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 opacity-50 cursor-default';
                     }
                 });
             });
