@@ -270,7 +270,7 @@
 
     <!-- JAVASCRIPT APPLICATION LOGIC -->
     <script>
-        // Mẫu dữ liệu mặc định khi không tìm thấy file data.json
+        // Mẫu dữ liệu dự phòng khi hoàn toàn không fetch được data.json
         const FALLBACK_WORDLISTS = {
             'default': {
                 id: 'default',
@@ -310,18 +310,28 @@
         let activeManualEditingCardId = null;
         let tempManualSelectedIndices = new Set();
 
-        // --- KHỞI TẠO DỮ LIỆU (ƯU TIÊN ĐỌC FILE data.json MỚI NHẤT TRÊN GITHUB) ---
+        // --- KHỞI TẠO DỮ LIỆU ---
         document.addEventListener('DOMContentLoaded', async () => {
             initDarkMode();
             await reloadFromDataJson(false);
         });
 
+        // HÀM NẠP DỮ LIỆU - SỬA LỖI LƯU CACHE VÀ ƯU TIÊN FILE DATA.JSON TRÊN GITHUB
         async function reloadFromDataJson(isUserTriggered = false) {
             let loadedFromFetch = false;
 
             try {
-                // Thêm timestamp ?t= để chống trình duyệt lưu cache file data.json cũ
-                const response = await fetch('./data.json?t=' + Date.now(), { cache: 'no-store' });
+                // Ép trình duyệt không được cache file data.json
+                const fetchUrl = './data.json?nocache=' + new Date().getTime();
+                const response = await fetch(fetchUrl, {
+                    cache: 'no-store',
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache',
+                        'Expires': '0'
+                    }
+                });
+
                 if (response.ok) {
                     const jsonData = await response.json();
                     if (jsonData && (jsonData.cards || jsonData.wordlists)) {
@@ -329,16 +339,17 @@
                         state.wordlists = jsonData.wordlists || {};
                         state.activeWordlistId = jsonData.activeWordlistId || Object.keys(state.wordlists)[0] || 'default';
                         
-                        saveState(); // Cập nhật lại localStorage theo data.json mới
+                        // Cập nhật lại LocalStorage theo data.json mới nhất vừa tải về
+                        saveState();
                         loadedFromFetch = true;
-                        if (isUserTriggered) alert('Đã nạp lại toàn bộ dữ liệu thành công từ file data.json!');
+                        if (isUserTriggered) alert('Đã nạp lại thành công toàn bộ dữ liệu mới từ file data.json!');
                     }
                 }
             } catch (err) {
-                console.warn('Không thể nạp dữ liệu từ data.json, sẽ thử nạp từ LocalStorage/Fallback:', err);
+                console.warn('Không thể nạp dữ liệu từ data.json, chuyển sang nạp từ LocalStorage:', err);
             }
 
-            // Nếu không fetch được data.json (ví dụ chạy offline không dùng local server), mới dùng localStorage
+            // Chỉ đọc từ localStorage nếu không tải được từ data.json và không phải do người dùng chủ động bấm Tải lại
             if (!loadedFromFetch && !isUserTriggered) {
                 const savedLocal = localStorage.getItem('cloze_app_state');
                 if (savedLocal) {
@@ -348,7 +359,7 @@
                         console.error('Lỗi parse localStorage:', e);
                     }
                 } else {
-                    // Fallback cuối cùng
+                    // Fallback mặc định
                     state.cards = FALLBACK_CARDS;
                     state.wordlists = FALLBACK_WORDLISTS;
                     state.activeWordlistId = 'default';
@@ -769,7 +780,7 @@
             const tokens = card.text.split(/(\s+)/);
             let wordTokens = [];
             
-            tokens.forEach((t, i) => {
+            tokens.forEach((t) => {
                 if (!/\s+/.test(t)) {
                     wordTokens.push({ text: t, index: wordTokens.length });
                 }
@@ -780,7 +791,7 @@
             if (card.mode === 'manual' && card.manualWords && card.manualWords.length > 0) {
                 gapIndices = card.manualWords;
             } else {
-                // AUTO MODE based on target wordlist
+                // AUTO MODE dựa trên bộ từ vựng
                 const wl = state.wordlists[card.wordlistId] || Object.values(state.wordlists)[0];
                 const targetWords = new Set((wl ? wl.words : []).map(w => w.toLowerCase()));
 
@@ -791,7 +802,7 @@
                     }
                 });
 
-                // Nếu không trùng từ nào trong bộ từ, tự động lấy random vài từ dài
+                // Nếu không có từ nào khớp bộ từ, tự động chọn ngẫu nhiên vài từ dài
                 if (gapIndices.length === 0) {
                     wordTokens.forEach((wt) => {
                         const clean = wt.text.replace(/[^a-zA-Z]/g, '');
@@ -801,7 +812,23 @@
                 }
             }
 
-            // Xây dựng danh sách câu hỏi chỗ trống
+            // Thu thập tất cả từ đáp án trong bài đọc này
+            let selectedTargetWords = [];
+            gapIndices.forEach(idx => {
+                if (wordTokens[idx]) {
+                    const clean = wordTokens[idx].text.replace(/[^a-zA-Z]/g, '');
+                    if (clean) selectedTargetWords.push(clean);
+                }
+            });
+
+            // Dự phòng: Nếu số lượng từ được chọn làm đáp án ít hơn 4, nạp thêm từ bài đọc hoặc từ bộ từ vựng
+            let fallbackPool = wordTokens.map(wt => wt.text.replace(/[^a-zA-Z]/g, '')).filter(w => w.length > 2);
+            const wl = state.wordlists[card.wordlistId];
+            if (wl && wl.words) {
+                fallbackPool = fallbackPool.concat(wl.words);
+            }
+
+            // Tạo các câu hỏi điền từ
             let clozeGaps = [];
             let gapCounter = 1;
 
@@ -816,8 +843,7 @@
                     const prefixPunct = rawWord.match(/^[^\w]+/)?.[0] || '';
                     const suffixPunct = rawWord.match(/[^\w]+$/)?.[0] || '';
 
-                    // Tạo 3 phương án gây nhiễu và xáo trộn ngẫu nhiên
-                    const options = generateDistractors(cleanAnswer);
+                    const options = generateDistractors(cleanAnswer, selectedTargetWords, fallbackPool);
                     const gapId = gapCounter++;
 
                     clozeGaps.push({
@@ -837,13 +863,25 @@
             return { parsedTokens, clozeGaps };
         }
 
-        function generateDistractors(answer) {
-            const commonDistractors = ['however', 'although', 'because', 'therefore', 'increase', 'decrease', 'provide', 'require', 'achieve', 'create', 'develop', 'manage', 'important', 'opportunity', 'challenge', 'environment'];
-            let pool = commonDistractors.filter(w => w.toLowerCase() !== answer.toLowerCase());
-            
-            pool = pool.sort(() => 0.5 - Math.random()).slice(0, 3);
-            const options = [answer, ...pool];
-            // Xáo trộn vị trí ngẫu nhiên của 4 đáp án
+        function generateDistractors(answer, allSelectedWords, fallbackPool) {
+            // Lấy các từ đáp án khác trong bài (loại bỏ từ chính nó và trùng lặp)
+            let candidates = Array.from(new Set(
+                allSelectedWords.filter(w => w.toLowerCase() !== answer.toLowerCase())
+            ));
+
+            // Nếu không đủ 3 từ nhiễu, lấy thêm từ fallbackPool
+            if (candidates.length < 3) {
+                const additional = Array.from(new Set(
+                    fallbackPool.filter(w => w.toLowerCase() !== answer.toLowerCase() && !candidates.map(c=>c.toLowerCase()).includes(w.toLowerCase()))
+                ));
+                candidates = candidates.concat(additional);
+            }
+
+            // Trộn ngẫu nhiên và lấy 3 từ làm phương án nhiễu
+            candidates = candidates.sort(() => 0.5 - Math.random()).slice(0, 3);
+
+            // Gộp đáp án đúng vào và xáo trộn vị trí 4 nút
+            const options = [answer, ...candidates];
             return options.sort(() => 0.5 - Math.random());
         }
 
@@ -864,7 +902,6 @@
 
                     if (token.prefixPunct) gapSpan.appendChild(document.createTextNode(token.prefixPunct));
 
-                    // Tạo container chứa 4 nút bấm liền nhau
                     const btnGroup = document.createElement('div');
                     btnGroup.className = 'inline-flex gap-1 py-0.5';
 
@@ -877,13 +914,11 @@
                         btn.innerText = opt;
 
                         btn.onclick = () => {
-                            // Bỏ active tất cả các nút cùng gapId
                             document.querySelectorAll(`.option-btn-${token.gapId}`).forEach(b => {
                                 b.classList.remove('bg-blue-600', 'text-white', 'border-blue-600', 'shadow-sm');
                                 b.classList.add('bg-white', 'dark:bg-slate-700', 'text-slate-700', 'dark:text-slate-200', 'border-slate-300', 'dark:border-slate-500');
                             });
 
-                            // Active nút vừa bấm
                             btn.classList.remove('bg-white', 'dark:bg-slate-700', 'text-slate-700', 'dark:text-slate-200', 'border-slate-300', 'dark:border-slate-500');
                             btn.classList.add('bg-blue-600', 'text-white', 'border-blue-600', 'shadow-sm');
 
@@ -915,27 +950,22 @@
 
                 if (isCorrect) correctCount++;
 
-                // Vô hiệu hóa và cập nhật giao diện màu sắc các nút bấm
                 document.querySelectorAll(`.option-btn-${gap.gapId}`).forEach(btn => {
                     btn.disabled = true;
                     const optVal = btn.dataset.optionValue;
 
                     if (optVal.toLowerCase() === gap.correctAnswer.toLowerCase()) {
-                        // Nút đáp án đúng -> Màu xanh lá
                         btn.className = 'px-2.5 py-1 text-xs sm:text-sm font-bold rounded-md bg-emerald-600 text-white border-emerald-600 shadow-sm flex items-center gap-1 cursor-default';
                         btn.innerHTML = `<i class="fa-solid fa-check text-xs"></i> ${optVal}`;
                     } else if (userAnswer && optVal.toLowerCase() === userAnswer.toLowerCase() && !isCorrect) {
-                        // Nút người dùng chọn sai -> Màu đỏ
                         btn.className = 'px-2.5 py-1 text-xs sm:text-sm font-bold rounded-md bg-rose-600 text-white border-rose-600 shadow-sm line-through opacity-90 cursor-default';
                         btn.innerHTML = `<i class="fa-solid fa-xmark text-xs"></i> ${optVal}`;
                     } else {
-                        // Các nút khác -> Mờ đi
                         btn.className = 'px-2.5 py-1 text-xs sm:text-sm font-medium rounded-md bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 opacity-50 cursor-default';
                     }
                 });
             });
 
-            // UI Feedback
             const resultBox = document.getElementById('resultBox');
             const resultIcon = document.getElementById('resultIcon');
             const resultTitle = document.getElementById('resultTitle');
