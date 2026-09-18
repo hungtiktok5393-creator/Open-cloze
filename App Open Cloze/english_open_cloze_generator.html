@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="vi" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>English Open Cloze Generator</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0284c7',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- JS Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        .word-token {
+            transition: all 0.15s ease;
+            user-select: none;
+        }
+        .word-token.selected {
+            background-color: #3b82f6;
+            color: white;
+            font-weight: 600;
+            border-radius: 0.25rem;
+            padding: 0 4px;
+        }
+        .dark .word-token.selected {
+            background-color: #60a5fa;
+            color: #0f172a;
+        }
+        /* Style cho nút option trong chỗ trống bài tập */
+        .opt-btn {
+            transition: all 0.15s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen transition-colors duration-200 flex flex-col font-sans">
+
+    <!-- HEADER -->
+    <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 text-white p-2 rounded-lg flex items-center justify-center">
+                    <i class="fa-solid fa-graduation-cap text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">Cloze Master Pro</h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Tạo bài tập Tiếng Anh trắc nghiệm điền từ</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 sm:gap-3">
+                <!-- Nút Xuất Dữ Liệu -->
+                <button onclick="exportDataToJson()" title="Xuất toàn bộ bài tập & bộ từ ra file data.json" class="px-3 py-2 text-sm font-medium rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 flex items-center gap-2 transition">
+                    <i class="fa-solid fa-file-export text-emerald-600 dark:text-emerald-400"></i>
+                    <span class="hidden sm:inline">Xuất dữ liệu</span>
+                </button>
+
+                <!-- Nút Quản Lý Bộ Từ -->
+                <button id="btnOpenWordlistsModal" onclick="openWordlistsModal()" class="px-3 py-2 text-sm font-medium rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 transition">
+                    <i class="fa-solid fa-book text-blue-500"></i>
+                    <span class="hidden md:inline">Bộ từ mục tiêu</span>
+                    <span id="activeWordlistBadge" class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs px-2 py-0.5 rounded-full font-semibold">Default</span>
+                </button>
+
+                <!-- Nút Đổi Theme Light/Dark -->
+                <button id="themeToggleBtn" onclick="toggleDarkMode()" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition">
+                    <i class="fa-solid fa-moon dark:hidden"></i>
+                    <i class="fa-solid fa-sun hidden dark:block text-amber-400"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+        
+        <!-- SCREEN 1: SETUP / DASHBOARD -->
+        <section id="screenSetup" class="space-y-6">
+            
+            <!-- TOOLBAR -->
+            <div class="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col lg:flex-row gap-4 justify-between items-stretch lg:items-center">
+                <div class="flex flex-wrap items-center gap-2">
+                    <button onclick="addNewCard()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 shadow-sm transition">
+                        <i class="fa-solid fa-plus"></i> Thêm thẻ mới
+                    </button>
+                    <button onclick="selectAllCards(true)" class="px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg text-sm font-medium transition">
+                        <i class="fa-solid fa-check-double mr-1"></i> Chọn tất cả
+                    </button>
+                    <button onclick="selectAllCards(false)" class="px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg text-sm font-medium transition">
+                        Bỏ chọn
+                    </button>
+                    
+                    <!-- Level Filter Dropdown -->
+                    <div class="relative inline-block text-left">
+                        <select id="levelFilterSelect" onchange="filterByLevel(this.value)" class="px-3 py-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="">Lọc/Chọn theo cấp độ...</option>
+                            <option value="A1">Cấp độ A1</option>
+                            <option value="A2">Cấp độ A2</option>
+                            <option value="B1">Cấp độ B1</option>
+                            <option value="B2">Cấp độ B2</option>
+                            <option value="C1">Cấp độ C1</option>
+                            <option value="C2">Cấp độ C2</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between lg:justify-end gap-4 border-t lg:border-t-0 pt-3 lg:pt-0 border-slate-200 dark:border-slate-700">
+                    <span class="text-sm font-medium text-slate-500 dark:text-slate-400">
+                        Đã chọn: <strong id="selectedCount" class="text-blue-600 dark:text-blue-400">0</strong> thẻ
+                    </span>
+                    <button id="btnStartPractice" onclick="startPractice()" class="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg shadow-md transition flex items-center gap-2">
+                        <i class="fa-solid fa-play"></i> Bắt đầu luyện tập
+                    </button>
+                </div>
+            </div>
+
+            <!-- CARDS GRID -->
+            <div id="cardsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Cards render dynamically -->
+            </div>
+        </section>
+
+        <!-- SCREEN 2: PRACTICE -->
+        <section id="screenPractice" class="hidden space-y-6 max-w-4xl mx-auto">
+            
+            <!-- HEADER BAR -->
+            <div class="flex items-center justify-between bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                <button onclick="exitPractice()" class="px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg flex items-center gap-1.5 transition">
+                    <i class="fa-solid fa-arrow-left"></i> Quay lại Setup
+                </button>
+
+                <div class="flex items-center gap-3">
+                    <span id="practiceLevelBadge" class="px-2.5 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-semibold rounded-md">B1</span>
+                    <span id="practiceProgress" class="text-sm font-medium text-slate-500">Bài 1 / 3</span>
+                </div>
+            </div>
+
+            <!-- CARD EXERCISE CONTENT -->
+            <div class="bg-white dark:bg-slate-800 p-6 sm:p-8 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-md space-y-6">
+                <div>
+                    <h2 id="practiceCardTitle" class="text-xl font-bold text-slate-900 dark:text-white mb-1">Tên bài đọc</h2>
+                    <p class="text-xs text-slate-400">Chọn 1 trong 4 nút đáp án thích hợp cho mỗi chỗ trống trong bài đọc.</p>
+                </div>
+
+                <!-- PASSAGE CONTAINER -->
+                <div id="exercisePassage" class="text-base sm:text-lg leading-relaxed space-y-4 text-slate-800 dark:text-slate-200">
+                    <!-- Cloze Passage Dynamic Content -->
+                </div>
+
+                <!-- RESULT FEEDBACK -->
+                <div id="resultBox" class="hidden p-4 rounded-xl border flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <i id="resultIcon" class="text-2xl"></i>
+                        <div>
+                            <div id="resultTitle" class="font-bold text-base"></div>
+                            <div id="resultDetail" class="text-sm opacity-90"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ACTION BUTTONS -->
+                <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+                    <button id="btnCheckAnswer" onclick="checkAnswers()" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow transition flex items-center gap-2">
+                        <i class="fa-solid fa-check"></i> Kiểm tra kết quả
+                    </button>
+                    <button id="btnNextExercise" onclick="nextExercise()" class="hidden px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow transition flex items-center gap-2">
+                        Tiếp theo <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MODAL 1: WORDLIST MANAGEMENT -->
+    <div id="modalWordlists" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="p-5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+                <h3 class="font-bold text-lg flex items-center gap-2">
+                    <i class="fa-solid fa-book text-blue-500"></i> Quản lý Bộ từ Mục tiêu
+                </h3>
+                <button onclick="closeWordlistsModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xl">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="p-6 overflow-y-auto space-y-6 flex-1">
+                <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-end">
+                    <div class="flex-1">
+                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Chọn Bộ từ đang chỉnh sửa:</label>
+                        <select id="wordlistSelect" onchange="onWordlistSelectChange()" class="w-full px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none">
+                            <!-- Dynamic Options -->
+                        </select>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="createNewWordlistPrompt()" class="px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-sm font-medium rounded-lg transition flex items-center gap-1">
+                            <i class="fa-solid fa-plus"></i> Tạo mới
+                        </button>
+                        <button onclick="deleteCurrentWordlist()" class="px-3 py-2 bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 hover:bg-rose-200 text-sm font-medium rounded-lg transition">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center">
+                        <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400">Danh sách từ (Phân cách bằng dấu phẩy hoặc xuống dòng):</label>
+                        <span id="wordlistCount" class="text-xs text-blue-600 dark:text-blue-400 font-medium">0 từ</span>
+                    </div>
+                    <textarea id="wordlistTextarea" rows="8" placeholder="Nhập danh sách từ mục tiêu vào đây (ví dụ: accept, achieve, advantage, beautiful...)" class="w-full p-3 bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
+                </div>
+            </div>
+
+            <div class="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex justify-end gap-3">
+                <button onclick="closeWordlistsModal()" class="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg">Hủy</button>
+                <button onclick="saveCurrentWordlist()" class="px-5 py-2 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow transition">Lưu bộ từ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: MANUAL WORD SELECTION -->
+    <div id="modalManualSelect" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-3xl w-full shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="p-5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+                <div>
+                    <h3 class="font-bold text-lg">Tự chọn từ làm chỗ trống</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Bấm trực tiếp vào các từ trong đoạn văn để chọn/bỏ chọn làm chỗ trống.</p>
+                </div>
+                <button onclick="closeManualSelectModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-xl">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="p-6 overflow-y-auto flex-1">
+                <div id="manualWordInteractiveArea" class="text-base sm:text-lg leading-relaxed p-4 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-700 select-none">
+                    <!-- Clickable words rendered here -->
+                </div>
+            </div>
+
+            <div class="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between">
+                <div class="text-sm text-slate-500">
+                    Đã chọn: <strong id="manualSelectedCount" class="text-blue-600 dark:text-blue-400">0</strong> từ
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="clearManualSelections()" class="px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg">Xóa hết chọn</button>
+                    <button onclick="saveManualSelection()" class="px-5 py-2 text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow transition">Xác nhận & Lưu</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mẫu dữ liệu mặc định khi không tìm thấy file data.json lẫn localStorage
+        const FALLBACK_WORDLISTS = {
+            'default': {
+                id: 'default',
+                name: 'Từ vựng B1 - B2 Mặc định',
+                words: ['improve', 'environment', 'opportunity', 'challenge', 'solution', 'develop', 'community', 'experience', 'knowledge', 'important', 'achieve', 'benefit', 'support', 'protect', 'necessary', 'discover', 'encourage', 'succeed', 'valuable', 'explore']
+            }
+        };
+
+        const FALLBACK_CARDS = [
+            {
+                id: 'card-1',
+                title: 'Benefits of Reading Books',
+                level: 'B1',
+                text: 'Reading books is a wonderful habit that helps people improve their knowledge and vocabulary. It provides a great opportunity to learn about different cultures and ideas. Furthermore, reading regularly helps to reduce stress and develop critical thinking skills. It is important to find time for books every day.',
+                selected: true,
+                mode: 'auto',
+                manualWords: [],
+                wordlistId: 'default'
+            }
+        ];
+
+        // Global State
+        let state = {
+            cards: [],
+            wordlists: {},
+            activeWordlistId: 'default',
+            darkMode: false
+        };
+
+        let practiceState = {
+            activeCards: [],
+            currentIndex: 0,
+            currentExerciseData: null,
+            userAnswers: {}
+        };
+
+        let activeManualEditingCardId = null;
+        let tempManualSelectedIndices = new Set();
+
+        // --- CHỨC NĂNG 1: TỰ ĐỘNG NẠP DỮ LIỆU KHI KHỞI TẠO ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initAppData();
+            renderCards();
+        });
+
+        async function initAppData() {
+            if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                state.darkMode = true;
+            }
+            applyDarkMode();
+
+            const savedLocal = localStorage.getItem('cloze_app_state');
+
+            if (savedLocal) {
+                try {
+                    state = JSON.parse(savedLocal);
+                    return;
+                } catch (e) {
+                    console.error('Lỗi đọc localStorage:', e);
+                }
+            }
+
+            try {
+                const response = await fetch('./data.json');
+                if (response.ok) {
+                    const jsonData = await response.json();
+                    if (jsonData && (jsonData.cards || jsonData.wordlists)) {
+                        state.cards = jsonData.cards || [];
+                        state.wordlists = jsonData.wordlists || {};
+                        state.activeWordlistId = jsonData.activeWordlistId || Object.keys(state.wordlists)[0] || 'default';
+                        
+                        saveState();
+                        console.log('Nạp dữ liệu từ file data.json thành công!');
+                        return;
+                    }
+                }
+            } catch (err) {
+                console.log('Không tìm thấy hoặc không thể đọc file data.json. Sử dụng dữ liệu mẫu mặc định.', err);
+            }
+
+            state.cards = FALLBACK_CARDS;
+            state.wordlists = FALLBACK_WORDLISTS;
+            state.activeWordlistId = 'default';
+            saveState();
+        }
+
+        function saveState() {
+            localStorage.setItem('cloze_app_state', JSON.stringify({
+                cards: state.cards,
+                wordlists: state.wordlists,
+                activeWordlistId: state.activeWordlistId
+            }));
+        }
+
+        // --- CHỨC NĂNG 2: XUẤT FILE DỮ LIỆU (EXPORT JSON) ---
+        function exportDataToJson() {
+            const dataToExport = {
+                cards: state.cards,
+                wordlists: state.wordlists,
+                activeWordlistId: state.activeWordlistId,
+                exportedAt: new Date().toISOString()
+            };
+
+            const jsonString = JSON.stringify(dataToExport, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'data.json';
+            document.body.appendChild(a);
+            a.click();
+
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 0);
+        }
+
+        // --- DARK MODE ---
+        function toggleDarkMode() {
+            state.darkMode = !state.darkMode;
+            localStorage.setItem('theme', state.darkMode ? 'dark' : 'light');
+            applyDarkMode();
+        }
+
+        function applyDarkMode() {
+            if (state.darkMode) {
+                document.documentElement.classList.add('dark');
+                document.documentElement.classList.remove('light');
+            } else {
+                document.documentElement.classList.remove('dark');
+                document.documentElement.classList.add('light');
+            }
+        }
+
+        // --- DASHBOARD RENDER ---
+        function renderCards() {
+            const container = document.getElementById('cardsContainer');
+            container.innerHTML = '';
+
+            state.cards.forEach((card) => {
+                const cardEl = document.createElement('div');
+                cardEl.className = `bg-white dark:bg-slate-800 rounded-2xl border ${card.selected ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-slate-200 dark:border-slate-700'} p-5 shadow-sm hover:shadow-md transition relative flex flex-col justify-between space-y-4`;
+
+                const wordlistOptions = Object.values(state.wordlists).map(wl => 
+                    `<option value="${wl.id}" ${card.wordlistId === wl.id ? 'selected' : ''}>${wl.name}</option>`
+                ).join('');
+
+                cardEl.innerHTML = `
+                    <div class="space-y-3">
+                        <div class="flex items-start justify-between gap-2">
+                            <div class="flex items-center gap-3 flex-1">
+                                <input type="checkbox" ${card.selected ? 'checked' : ''} onchange="toggleCardSelection('${card.id}')" class="w-5 h-5 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer">
+                                <input type="text" value="${escapeHtml(card.title)}" onchange="updateCardTitle('${card.id}', this.value)" placeholder="Tên thẻ bài tập..." class="font-bold text-slate-800 dark:text-white bg-transparent border-b border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-blue-500 outline-none w-full text-base">
+                            </div>
+                            <button onclick="deleteCard('${card.id}')" class="text-slate-400 hover:text-rose-500 transition p-1">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                                <label class="block text-slate-400 mb-1">Cấp độ:</label>
+                                <select onchange="updateCardLevel('${card.id}', this.value)" class="w-full px-2 py-1.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg font-medium outline-none">
+                                    ${['A1','A2','B1','B2','C1','C2'].map(lvl => `<option value="${lvl}" ${card.level === lvl ? 'selected' : ''}>${lvl}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-slate-400 mb-1">Bộ từ áp dụng:</label>
+                                <select onchange="updateCardWordlist('${card.id}', this.value)" class="w-full px-2 py-1.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg font-medium outline-none truncate">
+                                    ${wordlistOptions}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between text-xs bg-slate-50 dark:bg-slate-700/50 p-2 rounded-lg border border-slate-100 dark:border-slate-700">
+                            <span class="text-slate-500 dark:text-slate-400">Chế độ chọn từ:</span>
+                            <div class="flex items-center gap-2">
+                                <button onclick="setCardMode('${card.id}', 'auto')" class="px-2 py-1 rounded ${card.mode === 'auto' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'} transition">
+                                    Tự động
+                                </button>
+                                <button onclick="setCardMode('${card.id}', 'manual')" class="px-2 py-1 rounded ${card.mode === 'manual' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'} transition">
+                                    Thủ công (${card.manualWords ? card.manualWords.length : 0})
+                                </button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <textarea onchange="updateCardText('${card.id}', this.value)" rows="4" placeholder="Nhập bài đọc Tiếng Anh vào đây..." class="w-full p-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none leading-relaxed">${escapeHtml(card.text)}</textarea>
+                        </div>
+                    </div>
+
+                    ${card.mode === 'manual' ? `
+                        <button onclick="openManualSelectModal('${card.id}')" class="w-full py-2 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-300 hover:bg-blue-100 rounded-lg text-xs font-semibold border border-blue-200 dark:border-blue-800 transition flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-hand-pointer"></i> Chọn từ thủ công trong đoạn
+                        </button>
+                    ` : ''}
+                `;
+
+                container.appendChild(cardEl);
+            });
+
+            updateSelectedCount();
+            
+            const activeWl = state.wordlists[state.activeWordlistId];
+            if (activeWl) {
+                document.getElementById('activeWordlistBadge').innerText = activeWl.name;
+            }
+        }
+
+        // --- CARD ACTIONS ---
+        function addNewCard() {
+            const newCard = {
+                id: 'card-' + Date.now(),
+                title: 'Bài đọc mới',
+                level: 'B1',
+                text: '',
+                selected: true,
+                mode: 'auto',
+                manualWords: [],
+                wordlistId: state.activeWordlistId || 'default'
+            };
+            state.cards.unshift(newCard);
+            saveState();
+            renderCards();
+        }
+
+        function deleteCard(cardId) {
+            state.cards = state.cards.filter(c => c.id !== cardId);
+            saveState();
+            renderCards();
+        }
+
+        function toggleCardSelection(cardId) {
+            const card = state.cards.find(c => c.id === cardId);
+            if (card) {
+                card.selected = !card.selected;
+                saveState();
+                renderCards();
+            }
+        }
+
+        function selectAllCards(select) {
+            state.cards.forEach(c => c.selected = select);
+            saveState();
+            renderCards();
+        }
+
+        function filterByLevel(level) {
+            if (!level) return;
+            state.cards.forEach(c => {
+                c.selected = (c.level === level);
+            });
+            saveState();
+            renderCards();
+        }
+
+        function updateCardTitle(id, val) {
+            const card = state.cards.find(c => c.id === id);
+            if (card) { card.title = val; saveState(); }
+        }
+
+        function updateCardText(id, val) {
+            const card = state.cards.find(c => c.id === id);
+            if (card) { card.text = val; saveState(); }
+        }
+
+        function updateCardLevel(id, val) {
+            const card = state.cards.find(c => c.id === id);
+            if (card) { card.level = val; saveState(); }
+        }
+
+        function updateCardWordlist(id, val) {
+            const card = state.cards.find(c => c.id === id);
+            if (card) { card.wordlistId = val; saveState(); }
+        }
+
+        function setCardMode(id, mode) {
+            const card = state.cards.find(c => c.id === id);
+            if (card) {
+                card.mode = mode;
+                saveState();
+                renderCards();
+            }
+        }
+
+        function updateSelectedCount() {
+            const count = state.cards.filter(c => c.selected).length;
+            document.getElementById('selectedCount').innerText = count;
+            document.getElementById('btnStartPractice').disabled = (count === 0);
+        }
+
+        // --- MODAL 1: WORDLIST MANAGEMENT ---
+        function openWordlistsModal() {
+            renderWordlistOptions();
+            loadWordlistToTextarea();
+            document.getElementById('modalWordlists').classList.remove('hidden');
+        }
+
+        function closeWordlistsModal() {
+            document.getElementById('modalWordlists').classList.add('hidden');
+            renderCards();
+        }
+
+        function renderWordlistOptions() {
+            const select = document.getElementById('wordlistSelect');
+            select.innerHTML = '';
+            Object.values(state.wordlists).forEach(wl => {
+                const opt = document.createElement('option');
+                opt.value = wl.id;
+                opt.innerText = wl.name;
+                if (wl.id === state.activeWordlistId) opt.selected = true;
+                select.appendChild(opt);
+            });
+        }
+
+        function onWordlistSelectChange() {
+            state.activeWordlistId = document.getElementById('wordlistSelect').value;
+            loadWordlistToTextarea();
+        }
+
+        function loadWordlistToTextarea() {
+            const wl = state.wordlists[state.activeWordlistId];
+            if (wl) {
+                document.getElementById('wordlistTextarea').value = wl.words.join(', ');
+                document.getElementById('wordlistCount').innerText = `${wl.words.length} từ`;
+            }
+        }
+
+        function saveCurrentWordlist() {
+            const text = document.getElementById('wordlistTextarea').value;
+            const words = text.split(/[\n,]+/).map(w => w.trim().toLowerCase()).filter(w => w.length > 0);
+            
+            if (state.wordlists[state.activeWordlistId]) {
+                state.wordlists[state.activeWordlistId].words = Array.from(new Set(words));
+                saveState();
+                closeWordlistsModal();
+            }
+        }
+
+        function createNewWordlistPrompt() {
+            const name = prompt('Nhập tên bộ từ vựng mới:');
+            if (name && name.trim()) {
+                const newId = 'wl-' + Date.now();
+                state.wordlists[newId] = {
+                    id: newId,
+                    name: name.trim(),
+                    words: []
+                };
+                state.activeWordlistId = newId;
+                saveState();
+                renderWordlistOptions();
+                loadWordlistToTextarea();
+            }
+        }
+
+        function deleteCurrentWordlist() {
+            const keys = Object.keys(state.wordlists);
+            if (keys.length <= 1) {
+                alert('Phải giữ ít nhất một bộ từ vựng!');
+                return;
+            }
+
+            if (confirm(`Bạn có chắc chắn muốn xóa bộ từ "${state.wordlists[state.activeWordlistId].name}"?`)) {
+                delete state.wordlists[state.activeWordlistId];
+                state.activeWordlistId = Object.keys(state.wordlists)[0];
+                saveState();
+                renderWordlistOptions();
+                loadWordlistToTextarea();
+            }
+        }
+
+        // --- MODAL 2: MANUAL WORD SELECTION ---
+        function openManualSelectModal(cardId) {
+            activeManualEditingCardId = cardId;
+            const card = state.cards.find(c => c.id === cardId);
+            if (!card || !card.text.trim()) {
+                alert('Vui lòng nhập nội dung đoạn văn cho bài đọc trước!');
+                return;
+            }
+
+            tempManualSelectedIndices = new Set(card.manualWords || []);
+            renderManualWordSelectionArea(card.text);
+            document.getElementById('modalManualSelect').classList.remove('hidden');
+        }
+
+        function closeManualSelectModal() {
+            document.getElementById('modalManualSelect').classList.add('hidden');
+            activeManualEditingCardId = null;
+        }
+
+        function renderManualWordSelectionArea(text) {
+            const area = document.getElementById('manualWordInteractiveArea');
+            area.innerHTML = '';
+
+            const tokens = text.split(/(\s+)/);
+            let wordIndex = 0;
+
+            tokens.forEach(token => {
+                if (/\s+/.test(token)) {
+                    area.appendChild(document.createTextNode(token));
+                } else {
+                    const currentIndex = wordIndex;
+                    const span = document.createElement('span');
+                    span.innerText = token;
+                    span.className = `word-token cursor-pointer border-b-2 border-transparent hover:border-blue-400 ${tempManualSelectedIndices.has(currentIndex) ? 'selected' : ''}`;
+                    
+                    span.onclick = () => {
+                        if (tempManualSelectedIndices.has(currentIndex)) {
+                            tempManualSelectedIndices.delete(currentIndex);
+                            span.classList.remove('selected');
+                        } else {
+                            tempManualSelectedIndices.add(currentIndex);
+                            span.classList.add('selected');
+                        }
+                        updateManualSelectedCount();
+                    };
+
+                    area.appendChild(span);
+                    wordIndex++;
+                }
+            });
+
+            updateManualSelectedCount();
+        }
+
+        function updateManualSelectedCount() {
+            document.getElementById('manualSelectedCount').innerText = tempManualSelectedIndices.size;
+        }
+
+        function clearManualSelections() {
+            tempManualSelectedIndices.clear();
+            const card = state.cards.find(c => c.id === activeManualEditingCardId);
+            if (card) renderManualWordSelectionArea(card.text);
+        }
+
+        function saveManualSelection() {
+            const card = state.cards.find(c => c.id === activeManualEditingCardId);
+            if (card) {
+                card.manualWords = Array.from(tempManualSelectedIndices);
+                saveState();
+                renderCards();
+                closeManualSelectModal();
+            }
+        }
+
+        // --- PRACTICE ENGINE WITH 4-BUTTON RANDOMIZED CLOZE SELECTION ---
+        function startPractice() {
+            practiceState.activeCards = state.cards.filter(c => c.selected && c.text.trim().length > 0);
+            if (practiceState.activeCards.length === 0) return;
+
+            practiceState.currentIndex = 0;
+            document.getElementById('screenSetup').classList.add('hidden');
+            document.getElementById('screenPractice').classList.remove('hidden');
+
+            loadExercise(practiceState.currentIndex);
+        }
+
+        function exitPractice() {
+            document.getElementById('screenPractice').classList.add('hidden');
+            document.getElementById('screenSetup').classList.remove('hidden');
+        }
+
+        function loadExercise(index) {
+            const card = practiceState.activeCards[index];
+            if (!card) return;
+
+            practiceState.userAnswers = {};
+            document.getElementById('practiceProgress').innerText = `Bài ${index + 1} / ${practiceState.activeCards.length}`;
+            document.getElementById('practiceLevelBadge').innerText = card.level;
+            document.getElementById('practiceCardTitle').innerText = card.title;
+
+            // Reset Result UI
+            const resultBox = document.getElementById('resultBox');
+            resultBox.classList.add('hidden');
+            document.getElementById('btnCheckAnswer').classList.remove('hidden');
+            document.getElementById('btnNextExercise').classList.add('hidden');
+
+            // Generate Cloze Data
+            practiceState.currentExerciseData = generateClozeData(card);
+            renderPracticePassage(practiceState.currentExerciseData);
+        }
+
+        function generateClozeData(card) {
+            const tokens = card.text.split(/(\s+)/);
+            let wordTokens = [];
+            
+            tokens.forEach((t) => {
+                if (!/\s+/.test(t)) {
+                    wordTokens.push({ text: t, index: wordTokens.length });
+                }
+            });
+
+            let gapIndices = [];
+
+            if (card.mode === 'manual' && card.manualWords && card.manualWords.length > 0) {
+                gapIndices = card.manualWords;
+            } else {
+                // AUTO MODE based on target wordlist
+                const wl = state.wordlists[card.wordlistId] || Object.values(state.wordlists)[0];
+                const targetWords = new Set((wl ? wl.words : []).map(w => w.toLowerCase()));
+
+                wordTokens.forEach((wt) => {
+                    const cleanWord = wt.text.replace(/[^a-zA-Z]/g, '').toLowerCase();
+                    if (targetWords.has(cleanWord)) {
+                        gapIndices.push(wt.index);
+                    }
+                });
+
+                if (gapIndices.length === 0) {
+                    wordTokens.forEach((wt) => {
+                        const clean = wt.text.replace(/[^a-zA-Z]/g, '');
+                        if (clean.length >= 5) gapIndices.push(wt.index);
+                    });
+                    gapIndices = gapIndices.slice(0, 5);
+                }
+            }
+
+            let clozeGaps = [];
+            let gapCounter = 1;
+
+            let wordCounter = 0;
+            const parsedTokens = tokens.map(token => {
+                if (/\s+/.test(token)) return { type: 'space', text: token };
+
+                const currentIndex = wordCounter++;
+                if (gapIndices.includes(currentIndex)) {
+                    const rawWord = token;
+                    const cleanAnswer = rawWord.replace(/[^a-zA-Z]/g, '');
+                    const prefixPunct = rawWord.match(/^[^\w]+/)?.[0] || '';
+                    const suffixPunct = rawWord.match(/[^\w]+$/)?.[0] || '';
+
+                    // Tạo 3 phương án gây nhiễu và xáo trộn ngẫu nhiên
+                    const options = generateDistractors(cleanAnswer);
+                    const gapId = gapCounter++;
+
+                    clozeGaps.push({
+                        gapId,
+                        correctAnswer: cleanAnswer,
+                        prefixPunct,
+                        suffixPunct,
+                        options
+                    });
+
+                    return { type: 'gap', gapId, prefixPunct, suffixPunct };
+                } else {
+                    return { type: 'text', text: token };
+                }
+            });
+
+            return { parsedTokens, clozeGaps };
+        }
+
+        // Tạo 3 phương án gây nhiễu và XÁO TRỘN NGẪU NHIÊN 4 đáp án
+        function generateDistractors(answer) {
+            const commonDistractors = ['however', 'although', 'because', 'therefore', 'increase', 'decrease', 'provide', 'require', 'achieve', 'create', 'develop', 'manage', 'important', 'opportunity', 'solution', 'community'];
+            let pool = commonDistractors.filter(w => w.toLowerCase() !== answer.toLowerCase());
+            
+            // Lấy ngẫu nhiên 3 từ gây nhiễu
+            pool = pool.sort(() => 0.5 - Math.random()).slice(0, 3);
+            const options = [answer, ...pool];
+            
+            // Xáo trộn 4 vị trí ngẫu nhiên
+            return options.sort(() => 0.5 - Math.random());
+        }
+
+        // HÀM RENDER CỤM 4 NÚT BẤM LIỀN NHAU
+        function renderPracticePassage(data) {
+            const container = document.getElementById('exercisePassage');
+            container.innerHTML = '';
+
+            data.parsedTokens.forEach(token => {
+                if (token.type === 'space') {
+                    container.appendChild(document.createTextNode(token.text));
+                } else if (token.type === 'text') {
+                    container.appendChild(document.createTextNode(token.text));
+                } else if (token.type === 'gap') {
+                    const gapInfo = data.clozeGaps.find(g => g.gapId === token.gapId);
+                    
+                    const gapWrapper = document.createElement('span');
+                    gapWrapper.className = 'inline-flex flex-wrap items-center gap-1 mx-1.5 my-1.5 align-middle p-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-inner';
+
+                    // Thêm số thứ tự câu hỏi
+                    const badge = document.createElement('span');
+                    badge.className = 'px-1.5 py-0.5 text-xs font-bold text-slate-500 dark:text-slate-400 select-none';
+                    badge.innerText = `(${token.gapId})`;
+                    gapWrapper.appendChild(badge);
+
+                    if (token.prefixPunct) {
+                        const pre = document.createElement('span');
+                        pre.className = 'font-bold text-slate-700 dark:text-slate-300';
+                        pre.innerText = token.prefixPunct;
+                        gapWrapper.appendChild(pre);
+                    }
+
+                    // Cụm 4 nút bấm phương án
+                    const btnGroup = document.createElement('div');
+                    btnGroup.className = 'inline-flex items-center rounded-lg bg-slate-200 dark:bg-slate-800 p-0.5 space-x-0.5 border border-slate-300 dark:border-slate-600';
+                    btnGroup.id = `gap-group-${token.gapId}`;
+
+                    gapInfo.options.forEach(opt => {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.dataset.gapId = token.gapId;
+                        btn.dataset.option = opt;
+                        btn.className = 'opt-btn px-2.5 py-1 text-xs sm:text-sm font-semibold rounded-md transition-all text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 focus:outline-none';
+                        btn.innerText = opt;
+
+                        btn.onclick = () => selectOption(token.gapId, opt, btnGroup);
+
+                        btnGroup.appendChild(btn);
+                    });
+
+                    gapWrapper.appendChild(btnGroup);
+
+                    if (token.suffixPunct) {
+                        const suf = document.createElement('span');
+                        suf.className = 'font-bold text-slate-700 dark:text-slate-300';
+                        suf.innerText = token.suffixPunct;
+                        gapWrapper.appendChild(suf);
+                    }
+
+                    container.appendChild(gapWrapper);
+                }
+            });
+        }
+
+        // Xử lý khi người dùng click vào 1 nút trong 4 phương án
+        function selectOption(gapId, optionValue, groupElement) {
+            practiceState.userAnswers[gapId] = optionValue;
+
+            // Reset giao diện các nút trong cùng cụm
+            const buttons = groupElement.querySelectorAll('.opt-btn');
+            buttons.forEach(btn => {
+                btn.className = 'opt-btn px-2.5 py-1 text-xs sm:text-sm font-semibold rounded-md transition-all text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 focus:outline-none';
+            });
+
+            // Highlight nút được chọn
+            const selectedBtn = Array.from(buttons).find(b => b.dataset.option === optionValue);
+            if (selectedBtn) {
+                selectedBtn.className = 'opt-btn px-2.5 py-1 text-xs sm:text-sm font-bold rounded-md transition-all bg-blue-600 text-white shadow-sm focus:outline-none';
+            }
+        }
+
+        // --- CHECK ANSWERS & EVALUATION ---
+        function checkAnswers() {
+            const data = practiceState.currentExerciseData;
+            if (!data) return;
+
+            let correctCount = 0;
+            const totalGaps = data.clozeGaps.length;
+
+            data.clozeGaps.forEach(gap => {
+                const groupElement = document.getElementById(`gap-group-${gap.gapId}`);
+                if (!groupElement) return;
+
+                const buttons = groupElement.querySelectorAll('.opt-btn');
+                const userAnswer = practiceState.userAnswers[gap.gapId];
+
+                buttons.forEach(btn => {
+                    btn.disabled = true; // Vô hiệu hóa nút sau khi chấm điểm
+                    const btnOpt = btn.dataset.option;
+
+                    const isCorrectOption = (btnOpt.toLowerCase() === gap.correctAnswer.toLowerCase());
+                    const isUserChoice = (userAnswer && btnOpt === userAnswer);
+
+                    if (isCorrectOption) {
+                        // Nút đáp án đúng -> Màu xanh lá cây
+                        btn.className = 'opt-btn px-2.5 py-1 text-xs sm:text-sm font-bold rounded-md bg-emerald-600 text-white shadow-sm flex items-center gap-1';
+                        btn.innerHTML = `<i class="fa-solid fa-check text-xs"></i> ${btnOpt}`;
+                    } else if (isUserChoice && !isCorrectOption) {
+                        // Nút người dùng chọn sai -> Màu đỏ
+                        btn.className = 'opt-btn px-2.5 py-1 text-xs sm:text-sm font-bold rounded-md bg-rose-600 text-white shadow-sm flex items-center gap-1';
+                        btn.innerHTML = `<i class="fa-solid fa-xmark text-xs"></i> ${btnOpt}`;
+                    } else {
+                        // Phương án khác không chọn -> Làm mờ
+                        btn.className = 'opt-btn px-2.5 py-1 text-xs sm:text-sm font-normal rounded-md text-slate-400 dark:text-slate-500 opacity-50 cursor-not-allowed';
+                    }
+                });
+
+                if (userAnswer && userAnswer.toLowerCase() === gap.correctAnswer.toLowerCase()) {
+                    correctCount++;
+                }
+            });
+
+            // UI Feedback
+            const resultBox = document.getElementById('resultBox');
+            const resultIcon = document.getElementById('resultIcon');
+            const resultTitle = document.getElementById('resultTitle');
+            const resultDetail = document.getElementById('resultDetail');
+
+            resultBox.classList.remove('hidden');
+
+            const scorePercent = Math.round((correctCount / totalGaps) * 100);
+
+            if (scorePercent === 100) {
+                resultBox.className = 'p-4 rounded-xl border flex items-center justify-between bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200';
+                resultIcon.className = 'fa-solid fa-circle-check text-2xl text-emerald-600';
+                resultTitle.innerText = 'Xuất sắc! (100%)';
+                resultDetail.innerText = `Bạn đã chọn chính xác toàn bộ ${correctCount}/${totalGaps} chỗ trống.`;
+                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+            } else if (scorePercent >= 60) {
+                resultBox.className = 'p-4 rounded-xl border flex items-center justify-between bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200';
+                resultIcon.className = 'fa-solid fa-award text-2xl text-amber-600';
+                resultTitle.innerText = `Làm tốt! (${scorePercent}%)`;
+                resultDetail.innerText = `Bạn đã làm đúng ${correctCount}/${totalGaps} chỗ trống. Hãy kiểm tra các câu màu đỏ nhé!`;
+            } else {
+                resultBox.className = 'p-4 rounded-xl border flex items-center justify-between bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200';
+                resultIcon.className = 'fa-solid fa-circle-xmark text-2xl text-rose-600';
+                resultTitle.innerText = `Cần cố gắng hơn! (${scorePercent}%)`;
+                resultDetail.innerText = `Chỉ đúng ${correctCount}/${totalGaps} chỗ trống. Tiếp tục luyện tập ở bài tiếp theo nhé!`;
+            }
+
+            document.getElementById('btnCheckAnswer').classList.add('hidden');
+            document.getElementById('btnNextExercise').classList.remove('hidden');
+        }
+
+        function nextExercise() {
+            practiceState.currentIndex++;
+            if (practiceState.currentIndex < practiceState.activeCards.length) {
+                loadExercise(practiceState.currentIndex);
+            } else {
+                alert('Chúc mừng! Bạn đã hoàn thành tất cả các bài tập đã chọn.');
+                exitPractice();
+            }
+        }
+
+        // --- HELPER UTILS ---
+        function escapeHtml(str) {
+            return (str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
