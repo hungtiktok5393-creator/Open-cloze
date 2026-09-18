@@ -164,6 +164,15 @@
                             <option value="C2">Cấp độ C2</option>
                         </select>
                     </div>
+
+                    <!-- Global Mode Switch Dropdown (MỚI) -->
+                    <div class="relative inline-block text-left flex-1 sm:flex-none">
+                        <select id="globalModeSelect" onchange="setAllCardsMode(this.value)" class="w-full sm:w-auto px-3 py-2.5 bg-blue-50 dark:bg-slate-700/80 border border-blue-300 dark:border-slate-600 rounded-xl text-sm font-semibold text-blue-800 dark:text-blue-300 focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="">Chế độ chọn từ hàng loạt...</option>
+                            <option value="auto">⚡ Tất cả: Tự động</option>
+                            <option value="manual">✋ Tất cả: Thủ công</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="flex items-center justify-between lg:justify-end gap-4 border-t lg:border-t-0 pt-3 lg:pt-0 border-slate-200 dark:border-slate-700">
@@ -201,7 +210,7 @@
             <div class="bg-white dark:bg-slate-800 p-5 sm:p-8 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-md space-y-6">
                 <div>
                     <h2 id="practiceCardTitle" class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mb-1">Tên bài đọc</h2>
-                    <p class="text-xs sm:text-sm text-slate-400">Chọn 1 trong 4 đáp án đúng cho mỗi chỗ trống.</p>
+                    <p class="text-xs sm:text-sm text-slate-400">Chọn 1 trong 4 đáp án đúng cho mỗi chỗ trống trong bài.</p>
                 </div>
 
                 <!-- PASSAGE CONTAINER -->
@@ -359,12 +368,11 @@
             await reloadFromDataJson(false);
         });
 
-        // HÀM NẠP DỮ LIỆU - SỬA LỖI LƯU CACHE VÀ ƯU TIÊN FILE DATA.JSON TRÊN GITHUB
+        // HÀM NẠP DỮ LIỆU
         async function reloadFromDataJson(isUserTriggered = false) {
             let loadedFromFetch = false;
 
             try {
-                // Ép trình duyệt không được cache file data.json
                 const fetchUrl = './data.json?nocache=' + new Date().getTime();
                 const response = await fetch(fetchUrl, {
                     cache: 'no-store',
@@ -382,7 +390,6 @@
                         state.wordlists = jsonData.wordlists || {};
                         state.activeWordlistId = jsonData.activeWordlistId || Object.keys(state.wordlists)[0] || 'default';
                         
-                        // Cập nhật lại LocalStorage theo data.json mới nhất vừa tải về
                         saveState();
                         loadedFromFetch = true;
                         if (isUserTriggered) alert('Đã nạp lại thành công toàn bộ dữ liệu mới từ file data.json!');
@@ -392,7 +399,6 @@
                 console.warn('Không thể nạp dữ liệu từ data.json, chuyển sang nạp từ LocalStorage:', err);
             }
 
-            // Chỉ đọc từ localStorage nếu không tải được từ data.json và không phải do người dùng chủ động bấm Tải lại
             if (!loadedFromFetch && !isUserTriggered) {
                 const savedLocal = localStorage.getItem('cloze_app_state');
                 if (savedLocal) {
@@ -402,7 +408,6 @@
                         console.error('Lỗi parse localStorage:', e);
                     }
                 } else {
-                    // Fallback mặc định
                     state.cards = FALLBACK_CARDS;
                     state.wordlists = FALLBACK_WORDLISTS;
                     state.activeWordlistId = 'default';
@@ -539,7 +544,6 @@
 
             updateSelectedCount();
             
-            // Cập nhật tên bộ từ đang active trên badge header
             const activeWl = state.wordlists[state.activeWordlistId];
             if (activeWl) {
                 document.getElementById('activeWordlistBadge').innerText = activeWl.name;
@@ -591,6 +595,18 @@
             });
             saveState();
             renderCards();
+        }
+
+        // HÀM MỚI: CHUYỂN ĐỔI CHẾ ĐỘ HÀNG LOẠT DÀNH CHO TẤT CẢ THẺ
+        function setAllCardsMode(mode) {
+            if (!mode) return;
+            state.cards.forEach(c => {
+                c.mode = mode;
+            });
+            saveState();
+            renderCards();
+            // Reset dropdown về placeholder
+            document.getElementById('globalModeSelect').value = '';
         }
 
         function updateCardTitle(id, val) {
@@ -782,7 +798,7 @@
             }
         }
 
-        // --- PRACTICE ENGINE ---
+        // --- PRACTICE ENGINE & GENERATION LOGIC ---
         function startPractice() {
             practiceState.activeCards = state.cards.filter(c => c.selected && c.text.trim().length > 0);
             if (practiceState.activeCards.length === 0) return;
@@ -819,6 +835,7 @@
             renderPracticePassage(practiceState.currentExerciseData);
         }
 
+        // CẬP NHẬT LOGIC GENERATE CLOZE DATA: TÁCH CÂU VÀ CHỈ CHỌN 1 TỪ/CÂU NẰM TRONG BỘ TỪ
         function generateClozeData(card) {
             const tokens = card.text.split(/(\s+)/);
             let wordTokens = [];
@@ -834,28 +851,32 @@
             if (card.mode === 'manual' && card.manualWords && card.manualWords.length > 0) {
                 gapIndices = card.manualWords;
             } else {
-                // AUTO MODE dựa trên bộ từ vựng
+                // CHẾ ĐỘ TỰ ĐỘNG (AUTO MODE):
+                // 1. Tải Bộ từ mục tiêu của Thẻ bài tập
                 const wl = state.wordlists[card.wordlistId] || Object.values(state.wordlists)[0];
                 const targetWords = new Set((wl ? wl.words : []).map(w => w.toLowerCase()));
 
-                wordTokens.forEach((wt) => {
-                    const cleanWord = wt.text.replace(/[^a-zA-Z]/g, '').toLowerCase();
-                    if (targetWords.has(cleanWord)) {
-                        gapIndices.push(wt.index);
-                    }
-                });
+                // 2. Chia đoạn văn thành từng CÂU (dựa trên các dấu kết thúc câu: . ! ?)
+                // Dùng Regex tách câu nhưng vẫn bảo toàn vị trí wordToken
+                const sentences = splitIntoSentencesWithTokens(wordTokens);
 
-                // Nếu không có từ nào khớp bộ từ, tự động chọn ngẫu nhiên vài từ dài
-                if (gapIndices.length === 0) {
-                    wordTokens.forEach((wt) => {
-                        const clean = wt.text.replace(/[^a-zA-Z]/g, '');
-                        if (clean.length >= 5) gapIndices.push(wt.index);
+                // 3. Trong mỗi câu, quét tìm từ thuộc targetWords và CHỈ CHỌN TỐI ĐA 1 TỪ
+                sentences.forEach(sentence => {
+                    const matchedTokens = sentence.filter(wt => {
+                        const cleanWord = wt.text.replace(/[^a-zA-Z]/g, '').toLowerCase();
+                        return targetWords.has(cleanWord);
                     });
-                    gapIndices = gapIndices.slice(0, 5);
-                }
+
+                    if (matchedTokens.length > 0) {
+                        // Nếu câu có từ trong bộ từ, chọn 1 từ (ví dụ: từ có độ dài lớn nhất hoặc từ đầu tiên)
+                        matchedTokens.sort((a, b) => b.text.length - a.text.length);
+                        gapIndices.push(matchedTokens[0].index);
+                    }
+                    // NẾU CÂU KHÔNG CÓ TỪ TRONG BỘ TỪ -> KHÔNG CHỌN TỪ NÀO CHO CÂU ĐÓ
+                });
             }
 
-            // Thu thập tất cả từ đáp án trong bài đọc này
+            // Thu thập tất cả các từ đáp án đúng trong toàn bộ bài tập
             let selectedTargetWords = [];
             gapIndices.forEach(idx => {
                 if (wordTokens[idx]) {
@@ -864,14 +885,14 @@
                 }
             });
 
-            // Dự phòng: Nếu số lượng từ được chọn làm đáp án ít hơn 4, nạp thêm từ bài đọc hoặc từ bộ từ vựng
+            // Danh sách từ dự phòng cho phương án nhiễu (distractors) lấy từ bài đọc + bộ từ vựng
             let fallbackPool = wordTokens.map(wt => wt.text.replace(/[^a-zA-Z]/g, '')).filter(w => w.length > 2);
             const wl = state.wordlists[card.wordlistId];
             if (wl && wl.words) {
                 fallbackPool = fallbackPool.concat(wl.words);
             }
 
-            // Tạo các câu hỏi điền từ
+            // Tạo các câu hỏi điền từ cho render
             let clozeGaps = [];
             let gapCounter = 1;
 
@@ -906,13 +927,33 @@
             return { parsedTokens, clozeGaps };
         }
 
+        // HÀM BỔ TRỢ: Tách danh sách WordTokens thành các câu dựa vào dấu ngắt câu (. ! ?)
+        function splitIntoSentencesWithTokens(wordTokens) {
+            let sentences = [];
+            let currentSentence = [];
+
+            wordTokens.forEach(wt => {
+                currentSentence.push(wt);
+                // Nếu từ có chứa dấu kết thúc câu ở cuối
+                if (/[.!?]+$/.test(wt.text)) {
+                    sentences.push(currentSentence);
+                    currentSentence = [];
+                }
+            });
+
+            if (currentSentence.length > 0) {
+                sentences.push(currentSentence);
+            }
+
+            return sentences;
+        }
+
+        // HÀM TẠO 4 ĐÁP ÁN TRẮC NGHIỆM (1 ĐÚNG, 3 SAO CHÉP NHIỄU)
         function generateDistractors(answer, allSelectedWords, fallbackPool) {
-            // Lấy các từ đáp án khác trong bài (loại bỏ từ chính nó và trùng lặp)
             let candidates = Array.from(new Set(
                 allSelectedWords.filter(w => w.toLowerCase() !== answer.toLowerCase())
             ));
 
-            // Nếu không đủ 3 từ nhiễu, lấy thêm từ fallbackPool
             if (candidates.length < 3) {
                 const additional = Array.from(new Set(
                     fallbackPool.filter(w => w.toLowerCase() !== answer.toLowerCase() && !candidates.map(c=>c.toLowerCase()).includes(w.toLowerCase()))
@@ -920,17 +961,22 @@
                 candidates = candidates.concat(additional);
             }
 
-            // Trộn ngẫu nhiên và lấy 3 từ làm phương án nhiễu
             candidates = candidates.sort(() => 0.5 - Math.random()).slice(0, 3);
-
-            // Gộp đáp án đúng vào và xáo trộn vị trí 4 nút
             const options = [answer, ...candidates];
             return options.sort(() => 0.5 - Math.random());
         }
 
+        // --- RENDER VÀ XỬ LÝ LÀM BÀI TẬP ---
         function renderPracticePassage(data) {
             const container = document.getElementById('exercisePassage');
             container.innerHTML = '';
+
+            if (data.clozeGaps.length === 0) {
+                const notice = document.createElement('div');
+                notice.className = 'p-4 mb-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-sm';
+                notice.innerHTML = '<i class="fa-solid fa-triangle-exclamation mr-1"></i> <strong>Lưu ý:</strong> Không tìm thấy từ nào trong bài đọc thuộc Bộ từ mục tiêu hiện tại. Do đó bài này không có chỗ trống.';
+                container.appendChild(notice);
+            }
 
             data.parsedTokens.forEach(token => {
                 if (token.type === 'space') {
@@ -986,6 +1032,12 @@
 
             let correctCount = 0;
             const totalGaps = data.clozeGaps.length;
+
+            if (totalGaps === 0) {
+                alert('Bài học này không có câu hỏi điền từ nào.');
+                nextExercise();
+                return;
+            }
 
             data.clozeGaps.forEach(gap => {
                 const userAnswer = practiceState.userAnswers[gap.gapId];
