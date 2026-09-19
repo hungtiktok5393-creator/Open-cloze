@@ -35,57 +35,99 @@
             touch-action: manipulation;
         }
 
-        /* Hiệu ứng bấm nút chung (Active State) */
+        /* Hiệu ứng bấm nút chung */
         button, a, select, input[type="checkbox"], .touch-effect {
             transition: transform 0.1s ease, background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
         }
         
         button:active:not(:disabled), 
-        a:active, 
-        .word-token:active {
+        a:active {
             transform: scale(0.96) !important;
         }
 
-        /* Chỉ áp dụng hiệu ứng Hover trên thiết bị có con trỏ (PC) */
-        @media (hover: hover) {
-            .btn-hover-effect:hover {
-                filter: brightness(0.95);
-            }
-        }
-
+        /* Styling cho Word Token khi bôi đen / chọn cụm từ thủ công */
         .word-token {
             transition: all 0.15s ease;
-            user-select: none;
-            -webkit-user-select: none;
             display: inline-block;
             padding: 2px 4px;
             margin: 1px 0;
             border-radius: 0.375rem;
+            cursor: pointer;
+            user-select: text;
+            -webkit-user-select: text;
         }
-        .word-token.selected {
-            background-color: #3b82f6;
+        .word-token.selected-pending {
+            background-color: #93c5fd;
+            color: #1e3a8a;
+        }
+        .word-token.in-phrase {
+            background-color: #2563eb;
             color: white;
             font-weight: 600;
         }
-        .dark .word-token.selected {
-            background-color: #60a5fa;
-            color: #0f172a;
+        .dark .word-token.in-phrase {
+            background-color: #3b82f6;
+            color: white;
         }
 
-        /* Tối ưu hóa hiển thị dòng điền từ trên di động */
-        .gap-container {
-            display: inline-flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 0.25rem;
-            margin: 0.25rem 0;
-            padding: 0.25rem;
-            background-color: rgba(241, 245, 249, 0.8);
-            border-radius: 0.75rem;
+        /* Custom style cho select dropdown trong bài tập */
+        .cloze-select {
+            display: inline-block;
             vertical-align: middle;
+            font-size: 0.95rem;
+            line-height: 1.25rem;
+            padding: 0.35rem 1.75rem 0.35rem 0.6rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%20475569' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-position: right 0.3rem center;
+            background-repeat: no-repeat;
+            background-size: 1.25em 1.25em;
+            margin: 2px 4px;
+            max-width: 100%;
         }
-        .dark .gap-container {
-            background-color: rgba(30, 41, 59, 0.8);
+
+        /* Trạng thái đúng / sai sau khi check đáp án */
+        .cloze-select.correct {
+            background-color: #d1fae5 !important;
+            border-color: #10b981 !important;
+            color: #065f46 !important;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+        }
+        .dark .cloze-select.correct {
+            background-color: #064e3b !important;
+            border-color: #10b981 !important;
+            color: #a7f3d0 !important;
+        }
+
+        .cloze-select.incorrect {
+            background-color: #ffe4e6 !important;
+            border-color: #f43f5e !important;
+            color: #9f1239 !important;
+            box-shadow: 0 0 0 2px rgba(244, 63, 94, 0.2);
+        }
+        .dark .cloze-select.incorrect {
+            background-color: #881337 !important;
+            border-color: #f43f5e !important;
+            color: #fecdd3 !important;
+        }
+
+        .phrase-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background-color: #e0f2fe;
+            color: #0369a1;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin: 2px;
+        }
+        .dark .phrase-badge {
+            background-color: #075985;
+            color: #e0f2fe;
         }
     </style>
 </head>
@@ -100,15 +142,21 @@
                 </div>
                 <div>
                     <h1 class="font-bold text-lg leading-tight">Cloze Master Pro</h1>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">Tạo bài tập Tiếng Anh trắc nghiệm điền từ</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Tạo bài tập Tiếng Anh trắc nghiệm điền từ / cụm từ</p>
                 </div>
             </div>
 
             <div class="flex items-center gap-2 sm:gap-3">
+                <!-- Nút Quản Lý Cấp Độ -->
+                <button onclick="openLevelsModal()" title="Quản lý danh sách Cấp độ" class="px-3 py-2 text-sm font-medium rounded-xl border border-slate-300 dark:border-slate-600 active:bg-slate-200 dark:active:bg-slate-700 flex items-center gap-2 transition">
+                    <i class="fa-solid fa-layer-group text-amber-500"></i>
+                    <span class="hidden md:inline">Quản lý cấp độ</span>
+                </button>
+
                 <!-- Nút Tải lại từ data.json -->
                 <button onclick="reloadFromDataJson(true)" title="Tải lại cài đặt và bài đọc từ file data.json gốc" class="px-3 py-2 text-sm font-medium rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-700 active:bg-blue-200 dark:active:bg-blue-900/80 flex items-center gap-2 transition">
                     <i class="fa-solid fa-rotate text-blue-600 dark:text-blue-400"></i>
-                    <span class="hidden sm:inline">Tải lại từ data.json</span>
+                    <span class="hidden sm:inline">Tải lại data.json</span>
                 </button>
 
                 <!-- Nút Xuất Dữ Liệu -->
@@ -155,13 +203,7 @@
                     <!-- Level Filter Dropdown -->
                     <div class="relative inline-block text-left flex-1 sm:flex-none">
                         <select id="levelFilterSelect" onchange="filterByLevel(this.value)" class="w-full sm:w-auto px-3 py-2.5 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none">
-                            <option value="">Lọc/Chọn theo cấp độ...</option>
-                            <option value="A1">Cấp độ A1</option>
-                            <option value="A2">Cấp độ A2</option>
-                            <option value="B1">Cấp độ B1</option>
-                            <option value="B2">Cấp độ B2</option>
-                            <option value="C1">Cấp độ C1</option>
-                            <option value="C2">Cấp độ C2</option>
+                            <!-- Dynamic Levels Rendered Here -->
                         </select>
                     </div>
 
@@ -210,7 +252,7 @@
             <div class="bg-white dark:bg-slate-800 p-5 sm:p-8 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-md space-y-6">
                 <div>
                     <h2 id="practiceCardTitle" class="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mb-1">Tên bài đọc</h2>
-                    <p class="text-xs sm:text-sm text-slate-400">Chọn 1 trong 4 đáp án đúng cho mỗi chỗ trống trong bài.</p>
+                    <p class="text-xs sm:text-sm text-slate-400">Chọn đáp án đúng nhất từ danh sách xổ xuống cho mỗi chỗ trống.</p>
                 </div>
 
                 <!-- PASSAGE CONTAINER -->
@@ -242,6 +284,38 @@
         </section>
 
     </main>
+
+    <!-- MODAL 0: LEVELS MANAGEMENT -->
+    <div id="modalLevels" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col">
+            <div class="p-5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+                <h3 class="font-bold text-lg flex items-center gap-2">
+                    <i class="fa-solid fa-layer-group text-amber-500"></i> Quản lý Cấp độ
+                </h3>
+                <button onclick="closeLevelsModal()" class="p-2 text-slate-400 active:text-slate-600 dark:active:text-white text-xl rounded-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="p-5 space-y-4 max-h-[60vh] overflow-y-auto">
+                <div class="flex gap-2">
+                    <input type="text" id="newLevelInput" placeholder="Tên cấp độ mới (vd: Starters, IELTS...)" class="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500">
+                    <button onclick="addNewLevel()" class="px-4 py-2 bg-blue-600 text-white font-semibold text-sm rounded-xl active:bg-blue-700 transition">Thêm</button>
+                </div>
+
+                <div class="border-t border-slate-200 dark:border-slate-700 pt-3">
+                    <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">Danh sách Cấp độ hiện tại:</label>
+                    <div id="levelsListContainer" class="space-y-2">
+                        <!-- Levels Render Dynamic -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex justify-end">
+                <button onclick="closeLevelsModal()" class="px-5 py-2 text-sm font-bold bg-blue-600 text-white rounded-xl shadow transition">Hoàn tất</button>
+            </div>
+        </div>
+    </div>
 
     <!-- MODAL 1: WORDLIST MANAGEMENT -->
     <div id="modalWordlists" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -289,28 +363,48 @@
         </div>
     </div>
 
-    <!-- MODAL 2: MANUAL WORD SELECTION -->
+    <!-- MODAL 2: MANUAL WORD & PHRASE SELECTION -->
     <div id="modalManualSelect" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-3xl w-full shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col max-h-[90vh]">
             <div class="p-5 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
                 <div>
-                    <h3 class="font-bold text-lg">Tự chọn từ làm chỗ trống</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">Chạm trực tiếp vào các từ trong đoạn văn để chọn/bỏ chọn làm chỗ trống.</p>
+                    <h3 class="font-bold text-lg">Chọn từ hoặc Cụm từ làm chỗ trống</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Bôi đen (quét) văn bản hoặc bấm chọn các từ liên tiếp để gộp thành 1 cụm từ chỗ trống.</p>
                 </div>
                 <button onclick="closeManualSelectModal()" class="p-2 text-slate-400 active:text-slate-600 dark:active:text-white text-xl rounded-lg">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
 
-            <div class="p-4 sm:p-6 overflow-y-auto flex-1">
-                <div id="manualWordInteractiveArea" class="text-base sm:text-lg leading-relaxed p-4 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-700 select-none">
-                    <!-- Clickable words rendered here -->
+            <div class="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4">
+                <!-- Instruction bar -->
+                <div class="flex flex-wrap items-center justify-between gap-2 p-3 bg-blue-50 dark:bg-slate-700/50 rounded-xl border border-blue-200 dark:border-slate-600 text-xs text-blue-900 dark:text-blue-200">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-lightbulb text-amber-500"></i>
+                        <span>Bôi đen chữ hoặc chạm các từ liên tiếp rồi nhấn <strong>"Tạo chỗ trống"</strong>.</span>
+                    </div>
+                    <button id="btnCreatePhrase" onclick="addPhraseFromSelection()" disabled class="px-3 py-1.5 bg-blue-600 text-white font-bold rounded-lg shadow disabled:opacity-40 transition">
+                        + Tạo chỗ trống
+                    </button>
+                </div>
+
+                <!-- Text Area for selection -->
+                <div id="manualWordInteractiveArea" onmouseup="handleTextSelection()" ontouchend="handleTextSelection()" class="text-base sm:text-lg leading-relaxed p-4 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-700 select-text">
+                    <!-- Interactive text tokens -->
+                </div>
+
+                <!-- Selected Phrases Summary List -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">Các từ / cụm từ đã chọn làm chỗ trống:</label>
+                    <div id="phrasesListContainer" class="flex flex-wrap gap-2 p-3 bg-slate-100 dark:bg-slate-900/40 rounded-xl min-h-[50px] border border-slate-200 dark:border-slate-700">
+                        <!-- Dynamic Phrase Badges -->
+                    </div>
                 </div>
             </div>
 
             <div class="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between gap-2">
                 <div class="text-xs sm:text-sm text-slate-500">
-                    Đã chọn: <strong id="manualSelectedCount" class="text-blue-600 dark:text-blue-400">0</strong> từ
+                    Đã tạo: <strong id="manualSelectedCount" class="text-blue-600 dark:text-blue-400">0</strong> chỗ trống
                 </div>
                 <div class="flex gap-2">
                     <button onclick="clearManualSelections()" class="px-3 py-2 text-xs font-medium text-rose-600 active:bg-rose-50 dark:active:bg-rose-950/30 rounded-xl">Xóa hết</button>
@@ -322,7 +416,9 @@
 
     <!-- JAVASCRIPT APPLICATION LOGIC -->
     <script>
-        // Mẫu dữ liệu dự phòng khi hoàn toàn không fetch được data.json
+        const DEFAULT_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+
+        // Mẫu dữ liệu dự phòng khi không tải được data.json
         const FALLBACK_WORDLISTS = {
             'default': {
                 id: 'default',
@@ -339,7 +435,7 @@
                 text: 'Reading books is a wonderful habit that helps people improve their knowledge and vocabulary. It provides a great opportunity to learn about different cultures and ideas. Furthermore, reading regularly helps to reduce stress and develop critical thinking skills. It is important to find time for books every day.',
                 selected: true,
                 mode: 'auto',
-                manualWords: [],
+                manualPhrases: [], // Mỗi phrase chứa mảng các token index: [[5], [12, 13]]
                 wordlistId: 'default'
             }
         ];
@@ -348,6 +444,7 @@
         let state = {
             cards: [],
             wordlists: {},
+            levels: DEFAULT_LEVELS,
             activeWordlistId: 'default',
             darkMode: false
         };
@@ -359,8 +456,10 @@
             userAnswers: {}
         };
 
+        // Manual Phrase selection state
         let activeManualEditingCardId = null;
-        let tempManualSelectedIndices = new Set();
+        let tempManualPhrases = []; // Array of arrays: [[idx1, idx2], [idx3]]
+        let pendingSelectedIndices = []; // Cụm đang chọn tạm thời
 
         // --- KHỞI TẠO DỮ LIỆU ---
         document.addEventListener('DOMContentLoaded', async () => {
@@ -368,7 +467,6 @@
             await reloadFromDataJson(false);
         });
 
-        // HÀM NẠP DỮ LIỆU
         async function reloadFromDataJson(isUserTriggered = false) {
             let loadedFromFetch = false;
 
@@ -388,18 +486,23 @@
                     if (jsonData && (jsonData.cards || jsonData.wordlists)) {
                         state.cards = jsonData.cards || [];
                         state.wordlists = jsonData.wordlists || {};
+                        state.levels = jsonData.levels && jsonData.levels.length > 0 ? jsonData.levels : DEFAULT_LEVELS;
                         state.activeWordlistId = jsonData.activeWordlistId || Object.keys(state.wordlists)[0] || 'default';
                         
-                        // Đảm bảo tất cả thẻ đồng bộ theo bộ từ active nếu thẻ đó chưa gắn bộ từ hợp lệ
+                        // Chuẩn hóa cấu trúc manualPhrases
                         state.cards.forEach(c => {
                             if (!state.wordlists[c.wordlistId]) {
                                 c.wordlistId = state.activeWordlistId;
                             }
+                            if (c.manualWords && !c.manualPhrases) {
+                                c.manualPhrases = c.manualWords.map(w => [w]);
+                            }
+                            c.manualPhrases = c.manualPhrases || [];
                         });
 
                         saveState();
                         loadedFromFetch = true;
-                        if (isUserTriggered) alert('Đã nạp lại thành công toàn bộ dữ liệu mới từ file data.json!');
+                        if (isUserTriggered) alert('Đã nạp lại thành công dữ liệu từ file data.json!');
                     }
                 }
             } catch (err) {
@@ -411,17 +514,26 @@
                 if (savedLocal) {
                     try {
                         state = JSON.parse(savedLocal);
+                        if (!state.levels || state.levels.length === 0) state.levels = DEFAULT_LEVELS;
+                        state.cards.forEach(c => {
+                            if (c.manualWords && !c.manualPhrases) {
+                                c.manualPhrases = c.manualWords.map(w => [w]);
+                            }
+                            c.manualPhrases = c.manualPhrases || [];
+                        });
                     } catch (e) {
                         console.error('Lỗi parse localStorage:', e);
                     }
                 } else {
                     state.cards = FALLBACK_CARDS;
                     state.wordlists = FALLBACK_WORDLISTS;
+                    state.levels = DEFAULT_LEVELS;
                     state.activeWordlistId = 'default';
                     saveState();
                 }
             }
 
+            renderLevelFilterOptions();
             renderCards();
         }
 
@@ -429,15 +541,17 @@
             localStorage.setItem('cloze_app_state', JSON.stringify({
                 cards: state.cards,
                 wordlists: state.wordlists,
+                levels: state.levels,
                 activeWordlistId: state.activeWordlistId
             }));
         }
 
-        // --- CHỨC NĂNG XUẤT FILE DỮ LIỆU (EXPORT JSON) ---
+        // --- EXPORT JSON ---
         function exportDataToJson() {
             const dataToExport = {
                 cards: state.cards,
                 wordlists: state.wordlists,
+                levels: state.levels,
                 activeWordlistId: state.activeWordlistId,
                 exportedAt: new Date().toISOString()
             };
@@ -482,7 +596,73 @@
             }
         }
 
-        // --- DASHBOARD RENDER ---
+        // --- QUẢN LÝ CẤP ĐỘ (LEVEL MANAGEMENT) ---
+        function openLevelsModal() {
+            renderLevelsList();
+            document.getElementById('modalLevels').classList.remove('hidden');
+        }
+
+        function closeLevelsModal() {
+            document.getElementById('modalLevels').classList.add('hidden');
+            renderLevelFilterOptions();
+            renderCards();
+        }
+
+        function renderLevelFilterOptions() {
+            const select = document.getElementById('levelFilterSelect');
+            const currentVal = select.value;
+            select.innerHTML = `<option value="">Lọc/Chọn theo cấp độ...</option>`;
+            state.levels.forEach(lvl => {
+                const opt = document.createElement('option');
+                opt.value = lvl;
+                opt.innerText = `Cấp độ ${lvl}`;
+                if (lvl === currentVal) opt.selected = true;
+                select.appendChild(opt);
+            });
+        }
+
+        function renderLevelsList() {
+            const container = document.getElementById('levelsListContainer');
+            container.innerHTML = '';
+
+            state.levels.forEach((lvl, idx) => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-700';
+                div.innerHTML = `
+                    <span class="font-bold text-sm text-slate-700 dark:text-slate-200">${escapeHtml(lvl)}</span>
+                    <button onclick="removeLevel(${idx})" class="p-1 text-slate-400 hover:text-rose-500 transition">
+                        <i class="fa-solid fa-trash-can text-sm"></i>
+                    </button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function addNewLevel() {
+            const input = document.getElementById('newLevelInput');
+            const val = input.value.trim();
+            if (val) {
+                if (!state.levels.includes(val)) {
+                    state.levels.push(val);
+                    saveState();
+                    renderLevelsList();
+                    input.value = '';
+                } else {
+                    alert('Cấp độ này đã tồn tại!');
+                }
+            }
+        }
+
+        function removeLevel(index) {
+            if (state.levels.length <= 1) {
+                alert('Cần giữ lại ít nhất 1 cấp độ!');
+                return;
+            }
+            state.levels.splice(index, 1);
+            saveState();
+            renderLevelsList();
+        }
+
         function renderCards() {
             const container = document.getElementById('cardsContainer');
             container.innerHTML = '';
@@ -494,6 +674,12 @@
                 const wordlistOptions = Object.values(state.wordlists).map(wl => 
                     `<option value="${wl.id}" ${card.wordlistId === wl.id ? 'selected' : ''}>${wl.name}</option>`
                 ).join('');
+
+                const levelOptions = state.levels.map(lvl => 
+                    `<option value="${lvl}" ${card.level === lvl ? 'selected' : ''}>${lvl}</option>`
+                ).join('');
+
+                const phraseCount = card.manualPhrases ? card.manualPhrases.length : 0;
 
                 cardEl.innerHTML = `
                     <div class="space-y-3">
@@ -511,7 +697,7 @@
                             <div>
                                 <label class="block text-slate-400 mb-1">Cấp độ:</label>
                                 <select onchange="updateCardLevel('${card.id}', this.value)" class="w-full px-2 py-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl font-medium outline-none">
-                                    ${['A1','A2','B1','B2','C1','C2'].map(lvl => `<option value="${lvl}" ${card.level === lvl ? 'selected' : ''}>${lvl}</option>`).join('')}
+                                    ${levelOptions}
                                 </select>
                             </div>
                             <div>
@@ -529,7 +715,7 @@
                                     Tự động
                                 </button>
                                 <button onclick="setCardMode('${card.id}', 'manual')" class="px-2.5 py-1 rounded-lg ${card.mode === 'manual' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-600 dark:text-slate-300 active:bg-slate-200 dark:active:bg-slate-600'} transition">
-                                    Thủ công (${card.manualWords ? card.manualWords.length : 0})
+                                    Thủ công (${phraseCount})
                                 </button>
                             </div>
                         </div>
@@ -541,7 +727,7 @@
 
                     ${card.mode === 'manual' ? `
                         <button onclick="openManualSelectModal('${card.id}')" class="w-full py-2.5 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-300 active:bg-blue-100 rounded-xl text-xs font-semibold border border-blue-200 dark:border-blue-800 transition flex items-center justify-center gap-1.5">
-                            <i class="fa-solid fa-hand-pointer"></i> Chọn từ thủ công trong đoạn
+                            <i class="fa-solid fa-i-cursor"></i> Bôi đen / Chọn cụm từ thủ công
                         </button>
                     ` : ''}
                 `;
@@ -557,16 +743,15 @@
             }
         }
 
-        // --- CARD ACTIONS ---
         function addNewCard() {
             const newCard = {
                 id: 'card-' + Date.now(),
                 title: 'Bài đọc mới',
-                level: 'B1',
+                level: state.levels[0] || 'B1',
                 text: '',
                 selected: true,
                 mode: 'auto',
-                manualWords: [],
+                manualPhrases: [],
                 wordlistId: state.activeWordlistId || 'default'
             };
             state.cards.unshift(newCard);
@@ -681,7 +866,6 @@
 
         function onWordlistSelectChange() {
             state.activeWordlistId = document.getElementById('wordlistSelect').value;
-            // ÁP DỤNG BỘ TỪ CHO TẤT CẢ THẺ KHI ĐỔI LỰA CHỌN
             applyWordlistToAllCards(state.activeWordlistId);
             loadWordlistToTextarea();
         }
@@ -700,7 +884,6 @@
                 text.split(/[\n,]+/).map(w => w.trim().toLowerCase()).filter(w => w.length > 0)
             ));
             
-            // ÉP BUỘC BỘ TỪ MỤC TIÊU PHẢI CÓ ÍT NHẤT 4 TỪ
             if (words.length < 4) {
                 alert('Mỗi bộ từ mục tiêu phải chứa ít nhất 4 từ! Vui lòng nhập thêm từ.');
                 return;
@@ -708,7 +891,6 @@
 
             if (state.wordlists[state.activeWordlistId]) {
                 state.wordlists[state.activeWordlistId].words = words;
-                // Đồng bộ áp dụng bộ từ này cho toàn bộ thẻ bài tập
                 applyWordlistToAllCards(state.activeWordlistId);
                 saveState();
                 closeWordlistsModal();
@@ -749,7 +931,7 @@
             }
         }
 
-        // --- MODAL 2: MANUAL WORD SELECTION ---
+        // --- MODAL 2: MANUAL PHRASE SELECTION ---
         function openManualSelectModal(cardId) {
             activeManualEditingCardId = cardId;
             const card = state.cards.find(c => c.id === cardId);
@@ -758,8 +940,11 @@
                 return;
             }
 
-            tempManualSelectedIndices = new Set(card.manualWords || []);
+            tempManualPhrases = JSON.parse(JSON.stringify(card.manualPhrases || []));
+            pendingSelectedIndices = [];
+
             renderManualWordSelectionArea(card.text);
+            renderPhrasesList(card.text);
             document.getElementById('modalManualSelect').classList.remove('hidden');
         }
 
@@ -768,55 +953,202 @@
             activeManualEditingCardId = null;
         }
 
+        function getWordTokensFromText(text) {
+            const rawTokens = text.split(/(\s+)/);
+            let wordTokens = [];
+            let wIdx = 0;
+
+            rawTokens.forEach(t => {
+                if (!/\s+/.test(t) && t.trim().length > 0) {
+                    wordTokens.push({ text: t, index: wIdx++ });
+                }
+            });
+            return wordTokens;
+        }
+
         function renderManualWordSelectionArea(text) {
             const area = document.getElementById('manualWordInteractiveArea');
             area.innerHTML = '';
 
-            const tokens = text.split(/(\s+)/);
+            const rawTokens = text.split(/(\s+)/);
             let wordIndex = 0;
 
-            tokens.forEach(token => {
+            // Flatten all indices in existing phrases
+            const assignedIndices = new Set(tempManualPhrases.flat());
+
+            rawTokens.forEach(token => {
                 if (/\s+/.test(token)) {
                     area.appendChild(document.createTextNode(token));
                 } else {
-                    const currentIndex = wordIndex;
+                    const currentIndex = wordIndex++;
                     const span = document.createElement('span');
                     span.innerText = token;
-                    span.className = `word-token cursor-pointer ${tempManualSelectedIndices.has(currentIndex) ? 'selected' : ''}`;
-                    
-                    span.onclick = () => {
-                        if (tempManualSelectedIndices.has(currentIndex)) {
-                            tempManualSelectedIndices.delete(currentIndex);
-                            span.classList.remove('selected');
+                    span.dataset.index = currentIndex;
+
+                    const isInPhrase = assignedIndices.has(currentIndex);
+                    const isPending = pendingSelectedIndices.includes(currentIndex);
+
+                    let classNames = 'word-token ';
+                    if (isInPhrase) {
+                        classNames += 'in-phrase ';
+                    } else if (isPending) {
+                        classNames += 'selected-pending ';
+                    }
+
+                    span.className = classNames;
+
+                    span.onclick = (e) => {
+                        if (isInPhrase) return; // Đã nằm trong cụm từ
+                        
+                        const pIdx = pendingSelectedIndices.indexOf(currentIndex);
+                        if (pIdx > -1) {
+                            pendingSelectedIndices.splice(pIdx, 1);
                         } else {
-                            tempManualSelectedIndices.add(currentIndex);
-                            span.classList.add('selected');
+                            pendingSelectedIndices.push(currentIndex);
+                            pendingSelectedIndices.sort((a, b) => a - b);
                         }
-                        updateManualSelectedCount();
+                        updatePendingSelectionUI();
                     };
 
                     area.appendChild(span);
-                    wordIndex++;
                 }
             });
 
-            updateManualSelectedCount();
+            updatePendingSelectionUI();
         }
 
-        function updateManualSelectedCount() {
-            document.getElementById('manualSelectedCount').innerText = tempManualSelectedIndices.size;
+        // Xử lý khi người dùng quét bôi đen văn bản bằng chuột/tay
+        function handleTextSelection() {
+            const selection = window.getSelection();
+            if (!selection || selection.isCollapsed) return;
+
+            const area = document.getElementById('manualWordInteractiveArea');
+            if (!area.contains(selection.anchorNode)) return;
+
+            const selectedIndices = [];
+            const tokens = area.querySelectorAll('.word-token');
+
+            tokens.forEach(tokenEl => {
+                if (selection.containsNode(tokenEl, true)) {
+                    const idx = parseInt(tokenEl.dataset.index, 10);
+                    if (!isNaN(idx)) {
+                        selectedIndices.push(idx);
+                    }
+                }
+            });
+
+            if (selectedIndices.length > 0) {
+                // Lọc bỏ những chỉ số đã thuộc về cụm từ khác
+                const assignedIndices = new Set(tempManualPhrases.flat());
+                const validNewIndices = selectedIndices.filter(i => !assignedIndices.has(i));
+
+                if (validNewIndices.length > 0) {
+                    pendingSelectedIndices = Array.from(new Set([...pendingSelectedIndices, ...validNewIndices])).sort((a, b) => a - b);
+                    updatePendingSelectionUI();
+                }
+            }
+        }
+
+        function updatePendingSelectionUI() {
+            const card = state.cards.find(c => c.id === activeManualEditingCardId);
+            if (!card) return;
+
+            const assignedIndices = new Set(tempManualPhrases.flat());
+            const area = document.getElementById('manualWordInteractiveArea');
+            const tokens = area.querySelectorAll('.word-token');
+
+            tokens.forEach(tokenEl => {
+                const idx = parseInt(tokenEl.dataset.index, 10);
+                tokenEl.classList.remove('selected-pending', 'in-phrase');
+
+                if (assignedIndices.has(idx)) {
+                    tokenEl.classList.add('in-phrase');
+                } else if (pendingSelectedIndices.includes(idx)) {
+                    tokenEl.classList.add('selected-pending');
+                }
+            });
+
+            const btnCreate = document.getElementById('btnCreatePhrase');
+            btnCreate.disabled = (pendingSelectedIndices.length === 0);
+        }
+
+        function addPhraseFromSelection() {
+            if (pendingSelectedIndices.length === 0) return;
+
+            // Kiểm tra tính liên tục của các từ được chọn
+            pendingSelectedIndices.sort((a, b) => a - b);
+            
+            // Tách thành các nhóm từ liền kề nếu có khoảng ngắt
+            let currentGroup = [pendingSelectedIndices[0]];
+            for (let i = 1; i < pendingSelectedIndices.length; i++) {
+                if (pendingSelectedIndices[i] === pendingSelectedIndices[i - 1] + 1) {
+                    currentGroup.push(pendingSelectedIndices[i]);
+                } else {
+                    tempManualPhrases.push(currentGroup);
+                    currentGroup = [pendingSelectedIndices[i]];
+                }
+            }
+            if (currentGroup.length > 0) {
+                tempManualPhrases.push(currentGroup);
+            }
+
+            pendingSelectedIndices = [];
+            const card = state.cards.find(c => c.id === activeManualEditingCardId);
+            if (card) {
+                renderManualWordSelectionArea(card.text);
+                renderPhrasesList(card.text);
+            }
+        }
+
+        function renderPhrasesList(text) {
+            const container = document.getElementById('phrasesListContainer');
+            container.innerHTML = '';
+
+            const wordTokens = getWordTokensFromText(text);
+
+            tempManualPhrases.forEach((phraseIndices, pIndex) => {
+                const phraseText = phraseIndices.map(idx => {
+                    const token = wordTokens.find(w => w.index === idx);
+                    return token ? token.text : '';
+                }).join(' ');
+
+                const badge = document.createElement('div');
+                badge.className = 'phrase-badge';
+                badge.innerHTML = `
+                    <span>"${escapeHtml(phraseText)}"</span>
+                    <button onclick="removePhrase(${pIndex})" class="ml-1 text-slate-400 hover:text-rose-500">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                `;
+                container.appendChild(badge);
+            });
+
+            document.getElementById('manualSelectedCount').innerText = tempManualPhrases.length;
+        }
+
+        function removePhrase(index) {
+            tempManualPhrases.splice(index, 1);
+            const card = state.cards.find(c => c.id === activeManualEditingCardId);
+            if (card) {
+                renderManualWordSelectionArea(card.text);
+                renderPhrasesList(card.text);
+            }
         }
 
         function clearManualSelections() {
-            tempManualSelectedIndices.clear();
+            tempManualPhrases = [];
+            pendingSelectedIndices = [];
             const card = state.cards.find(c => c.id === activeManualEditingCardId);
-            if (card) renderManualWordSelectionArea(card.text);
+            if (card) {
+                renderManualWordSelectionArea(card.text);
+                renderPhrasesList(card.text);
+            }
         }
 
         function saveManualSelection() {
             const card = state.cards.find(c => c.id === activeManualEditingCardId);
             if (card) {
-                card.manualWords = Array.from(tempManualSelectedIndices);
+                card.manualPhrases = JSON.parse(JSON.stringify(tempManualPhrases));
                 saveState();
                 renderCards();
                 closeManualSelectModal();
@@ -860,24 +1192,27 @@
             renderPracticePassage(practiceState.currentExerciseData);
         }
 
-        // LOGIC TẠO BÀI TẬP CLOZE & NÚT BẤM (CẬP NHẬT THEO YÊU CẦU MỚI)
         function generateClozeData(card) {
-            const tokens = card.text.split(/(\s+)/);
+            const rawTokens = card.text.split(/(\s+)/);
             let wordTokens = [];
+            let wIdx = 0;
             
-            tokens.forEach((t) => {
-                if (!/\s+/.test(t)) {
-                    wordTokens.push({ text: t, index: wordTokens.length });
+            rawTokens.forEach((t) => {
+                if (!/\s+/.test(t) && t.trim().length > 0) {
+                    wordTokens.push({ text: t, index: wIdx++ });
                 }
             });
 
-            let gapIndices = [];
+            // Gaps will be array of phrase objects: [{ phraseIndices: [1, 2], cleanAnswer: "...", prefixPunct: "", suffixPunct: "" }]
+            let phraseGaps = [];
             const wl = state.wordlists[card.wordlistId] || Object.values(state.wordlists)[0] || { words: [] };
 
-            if (card.mode === 'manual' && card.manualWords && card.manualWords.length > 0) {
-                gapIndices = card.manualWords;
+            if (card.mode === 'manual' && card.manualPhrases && card.manualPhrases.length > 0) {
+                card.manualPhrases.forEach(pIndices => {
+                    phraseGaps.push({ phraseIndices: pIndices });
+                });
             } else {
-                // CHẾ ĐỘ TỰ ĐỘNG (AUTO):
+                // CHẾ ĐỘ TỰ ĐỘNG (AUTO)
                 const targetWords = new Set(wl.words.map(w => w.toLowerCase()));
                 const sentences = splitIntoSentencesWithTokens(wordTokens);
 
@@ -889,76 +1224,106 @@
 
                     if (matchedTokens.length > 0) {
                         matchedTokens.sort((a, b) => b.text.length - a.text.length);
-                        gapIndices.push(matchedTokens[0].index);
+                        phraseGaps.push({ phraseIndices: [matchedTokens[0].index] });
                     }
                 });
             }
 
-            // Lấy danh sách tất cả các từ người dùng đã chọn (viết thường) ở chế độ THỦ CÔNG
-            let userSelectedWordsManual = [];
-            if (card.mode === 'manual') {
-                gapIndices.forEach(idx => {
-                    if (wordTokens[idx]) {
-                        const clean = wordTokens[idx].text.replace(/[^a-zA-Z]/g, '').toLowerCase();
-                        if (clean && !userSelectedWordsManual.includes(clean)) {
-                            userSelectedWordsManual.push(clean);
-                        }
-                    }
-                });
-            }
+            // Lấy danh sách đáp án đúng từ tất cả cụm từ thủ công
+            let userSelectedPhrasesManual = [];
+            phraseGaps.forEach(p => {
+                const phraseWords = p.phraseIndices.map(idx => {
+                    const wt = wordTokens.find(w => w.index === idx);
+                    return wt ? wt.text.replace(/[^a-zA-Z]/g, '').toLowerCase() : '';
+                }).filter(w => w.length > 0);
+                
+                const cleanPhrase = phraseWords.join(' ');
+                if (cleanPhrase && !userSelectedPhrasesManual.includes(cleanPhrase)) {
+                    userSelectedPhrasesManual.push(cleanPhrase);
+                }
+            });
 
             let clozeGaps = [];
             let gapCounter = 1;
 
-            let wordCounter = 0;
-            const parsedTokens = tokens.map(token => {
-                if (/\s+/.test(token)) return { type: 'space', text: token };
+            // Xây dựng map từ wordIndex -> gapId
+            const indexToGapMap = new Map();
+            phraseGaps.forEach(p => {
+                const gapId = gapCounter++;
+                const firstWt = wordTokens.find(w => w.index === p.phraseIndices[0]);
+                const lastWt = wordTokens.find(w => w.index === p.phraseIndices[p.phraseIndices.length - 1]);
 
-                const currentIndex = wordCounter++;
-                if (gapIndices.includes(currentIndex)) {
-                    const rawWord = token;
-                    // TẤT CẢ TỪ ĐỀU VIẾT THƯỜNG (LOWERCASE) KHI TẠO NÚT BẤM
-                    const cleanAnswer = rawWord.replace(/[^a-zA-Z]/g, '').toLowerCase();
-                    const prefixPunct = rawWord.match(/^[^\w]+/)?.[0] || '';
-                    const suffixPunct = rawWord.match(/[^\w]+$/)?.[0] || '';
+                const phraseRawTexts = p.phraseIndices.map(idx => {
+                    const wt = wordTokens.find(w => w.index === idx);
+                    return wt ? wt.text : '';
+                });
 
-                    let options = [];
-                    if (card.mode === 'auto') {
-                        // CHẾ ĐỘ TỰ ĐỘNG: Chỉ dùng các từ trong bộ từ mục tiêu (viết thường)
-                        options = generateAutoOptions(cleanAnswer, wl.words);
-                    } else {
-                        // CHẾ ĐỘ THỦ CÔNG: Chỉ dùng những từ người dùng đã chọn + Chọn độ dài tương tự
-                        options = generateManualOptions(cleanAnswer, userSelectedWordsManual);
-                    }
+                const cleanAnswer = phraseRawTexts.map(t => t.replace(/[^a-zA-Z]/g, '').toLowerCase()).filter(w => w.length > 0).join(' ');
+                const prefixPunct = firstWt ? (firstWt.text.match(/^[^\w]+/)?.[0] || '') : '';
+                const suffixPunct = lastWt ? (lastWt.text.match(/[^\w]+$/)?.[0] || '') : '';
 
-                    const gapId = gapCounter++;
-
-                    clozeGaps.push({
-                        gapId,
-                        correctAnswer: cleanAnswer,
-                        prefixPunct,
-                        suffixPunct,
-                        options
-                    });
-
-                    return { type: 'gap', gapId, prefixPunct, suffixPunct };
+                let options = [];
+                if (card.mode === 'auto') {
+                    options = generateAutoOptions(cleanAnswer, wl.words);
                 } else {
-                    return { type: 'text', text: token };
+                    options = generateManualOptions(cleanAnswer, userSelectedPhrasesManual, wl.words);
+                }
+
+                clozeGaps.push({
+                    gapId,
+                    phraseIndices: p.phraseIndices,
+                    correctAnswer: cleanAnswer,
+                    prefixPunct,
+                    suffixPunct,
+                    options
+                });
+
+                p.phraseIndices.forEach(idx => {
+                    indexToGapMap.set(idx, gapId);
+                });
+            });
+
+            // Parse rawTokens thành cây cấu trúc để render
+            let wordCounter = 0;
+            let parsedTokens = [];
+            let activeGapProcessing = null;
+
+            rawTokens.forEach(token => {
+                if (/\s+/.test(token)) {
+                    parsedTokens.push({ type: 'space', text: token });
+                } else {
+                    const currentIndex = wordCounter++;
+                    const gapId = indexToGapMap.get(currentIndex);
+
+                    if (gapId) {
+                        const gapInfo = clozeGaps.find(g => g.gapId === gapId);
+                        const isFirstInGap = (gapInfo.phraseIndices[0] === currentIndex);
+                        const isLastInGap = (gapInfo.phraseIndices[gapInfo.phraseIndices.length - 1] === currentIndex);
+
+                        if (isFirstInGap) {
+                            parsedTokens.push({
+                                type: 'gap',
+                                gapId,
+                                prefixPunct: gapInfo.prefixPunct,
+                                suffixPunct: gapInfo.suffixPunct
+                            });
+                        }
+                    } else {
+                        parsedTokens.push({ type: 'text', text: token });
+                    }
                 }
             });
 
             return { parsedTokens, clozeGaps };
         }
 
-        // HÀM TẠO 4 NÚT TỰ ĐỘNG (CHỈ DÙNG BỘ TỪ MỤC TIÊU, LUÔN VIẾT THƯỜNG, ĐẢM BẢO 4 TỪ KHÁC NHAU)
+        // Tạo 4 phương án lựa chọn cho chế độ TỰ ĐỘNG
         function generateAutoOptions(correctAnswer, targetWords) {
             const cleanCorrect = correctAnswer.toLowerCase();
-            // Lọc loại bỏ đáp án đúng và chuyển về viết thường
             let pool = Array.from(new Set(
                 (targetWords || []).map(w => w.toLowerCase()).filter(w => w !== cleanCorrect)
             ));
 
-            // Trộn ngẫu nhiên và lấy 3 từ làm nhiễu
             pool = pool.sort(() => 0.5 - Math.random());
             const distractors = pool.slice(0, 3);
 
@@ -966,19 +1331,25 @@
             return options.sort(() => 0.5 - Math.random());
         }
 
-        // HÀM TẠO 4 NÚT THỦ CÔNG (CHỈ DÙNG CÁC TỪ ĐÃ CHỌN + ĐỘ DÀI TƯƠNG TỰ + VIẾT THƯỜNG + 4 TỪ KHÁC NHAU)
-        function generateManualOptions(correctAnswer, selectedManualWords) {
+        // Tạo 4 phương án lựa chọn cho chế độ THỦ CÔNG
+        function generateManualOptions(correctAnswer, selectedManualPhrases, fallbackWords) {
             const cleanCorrect = correctAnswer.toLowerCase();
             const targetLen = cleanCorrect.length;
 
-            // Danh sách các từ người dùng chọn ngoại trừ đáp án đúng
-            let pool = selectedManualWords.map(w => w.toLowerCase()).filter(w => w !== cleanCorrect);
+            let pool = Array.from(new Set(
+                selectedManualPhrases.map(w => w.toLowerCase()).filter(w => w !== cleanCorrect)
+            ));
 
-            // Sắp xếp các từ theo độ chênh lệch độ dài so với đáp án đúng (ưu tiên chênh lệch nhỏ nhất)
+            // Nếu không đủ 3 đáp án nhiễu từ cụm từ thủ công, bổ sung từ bộ từ mục tiêu
+            if (pool.length < 3 && fallbackWords) {
+                const extra = fallbackWords.map(w => w.toLowerCase()).filter(w => w !== cleanCorrect && !pool.includes(w));
+                pool = [...pool, ...extra];
+            }
+
             pool.sort((a, b) => {
                 const diffA = Math.abs(a.length - targetLen);
                 const diffB = Math.abs(b.length - targetLen);
-                if (diffA === diffB) return 0.5 - Math.random(); // Nếu chênh lệch bằng nhau thì xáo trộn ngẫu nhiên
+                if (diffA === diffB) return 0.5 - Math.random();
                 return diffA - diffB;
             });
 
@@ -1006,7 +1377,7 @@
             return sentences;
         }
 
-        // --- RENDER VÀ XỬ LÝ LÀM BÀI TẬP ---
+        // --- RENDER PRACTICE PASSAGE WITH DROPDOWN ---
         function renderPracticePassage(data) {
             const container = document.getElementById('exercisePassage');
             container.innerHTML = '';
@@ -1014,7 +1385,7 @@
             if (data.clozeGaps.length === 0) {
                 const notice = document.createElement('div');
                 notice.className = 'p-4 mb-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-sm';
-                notice.innerHTML = '<i class="fa-solid fa-triangle-exclamation mr-1"></i> <strong>Lưu ý:</strong> Không tìm thấy từ phù hợp để tạo chỗ trống.';
+                notice.innerHTML = '<i class="fa-solid fa-triangle-exclamation mr-1"></i> <strong>Lưu ý:</strong> Không tìm thấy từ/cụm từ phù hợp để tạo chỗ trống.';
                 container.appendChild(notice);
             }
 
@@ -1026,42 +1397,38 @@
                 } else if (token.type === 'gap') {
                     const gapInfo = data.clozeGaps.find(g => g.gapId === token.gapId);
                     
-                    const gapSpan = document.createElement('span');
-                    gapSpan.className = 'gap-container';
+                    if (token.prefixPunct) {
+                        container.appendChild(document.createTextNode(token.prefixPunct));
+                    }
 
-                    if (token.prefixPunct) gapSpan.appendChild(document.createTextNode(token.prefixPunct));
+                    // Tạo thẻ Dropdown SELECT
+                    const select = document.createElement('select');
+                    select.id = `gap-select-${token.gapId}`;
+                    select.className = 'cloze-select bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-300 dark:border-slate-600 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 shadow-sm';
 
-                    const btnGroup = document.createElement('div');
-                    btnGroup.className = 'inline-flex flex-wrap gap-1 py-0.5';
+                    // Lựa chọn mặc định
+                    const defaultOpt = document.createElement('option');
+                    defaultOpt.value = '';
+                    defaultOpt.innerText = '-- Chọn --';
+                    select.appendChild(defaultOpt);
 
+                    // Thêm các lựa chọn đáp án
                     gapInfo.options.forEach(opt => {
-                        const btn = document.createElement('button');
-                        btn.type = 'button';
-                        btn.dataset.gapId = token.gapId;
-                        btn.dataset.optionValue = opt;
-                        btn.className = `option-btn-${token.gapId} px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-lg border transition-all duration-100 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-500 active:scale-95 shadow-sm`;
-                        btn.innerText = opt; // opt luôn viết thường
-
-                        btn.onclick = () => {
-                            document.querySelectorAll(`.option-btn-${token.gapId}`).forEach(b => {
-                                b.classList.remove('bg-blue-600', 'text-white', 'border-blue-600', 'shadow-md', 'scale-105');
-                                b.classList.add('bg-white', 'dark:bg-slate-700', 'text-slate-700', 'dark:text-slate-200', 'border-slate-300', 'dark:border-slate-500');
-                            });
-
-                            btn.classList.remove('bg-white', 'dark:bg-slate-700', 'text-slate-700', 'dark:text-slate-200', 'border-slate-300', 'dark:border-slate-500');
-                            btn.classList.add('bg-blue-600', 'text-white', 'border-blue-600', 'shadow-md');
-
-                            practiceState.userAnswers[token.gapId] = opt;
-                        };
-
-                        btnGroup.appendChild(btn);
+                        const optEl = document.createElement('option');
+                        optEl.value = opt;
+                        optEl.innerText = opt;
+                        select.appendChild(optEl);
                     });
 
-                    gapSpan.appendChild(btnGroup);
+                    select.onchange = (e) => {
+                        practiceState.userAnswers[token.gapId] = e.target.value;
+                    };
 
-                    if (token.suffixPunct) gapSpan.appendChild(document.createTextNode(token.suffixPunct));
+                    container.appendChild(select);
 
-                    container.appendChild(gapSpan);
+                    if (token.suffixPunct) {
+                        container.appendChild(document.createTextNode(token.suffixPunct));
+                    }
                 }
             });
         }
@@ -1080,25 +1447,24 @@
             }
 
             data.clozeGaps.forEach(gap => {
-                const userAnswer = practiceState.userAnswers[gap.gapId];
-                const isCorrect = userAnswer && userAnswer.toLowerCase() === gap.correctAnswer.toLowerCase();
+                const selectEl = document.getElementById(`gap-select-${gap.gapId}`);
+                const userAnswer = (practiceState.userAnswers[gap.gapId] || '').trim();
+                const isCorrect = userAnswer.toLowerCase() === gap.correctAnswer.toLowerCase();
 
-                if (isCorrect) correctCount++;
+                selectEl.disabled = true;
 
-                document.querySelectorAll(`.option-btn-${gap.gapId}`).forEach(btn => {
-                    btn.disabled = true;
-                    const optVal = btn.dataset.optionValue;
-
-                    if (optVal.toLowerCase() === gap.correctAnswer.toLowerCase()) {
-                        btn.className = 'px-3 py-1.5 text-xs sm:text-sm font-bold rounded-lg bg-emerald-600 text-white border-emerald-600 shadow-sm flex items-center gap-1 cursor-default';
-                        btn.innerHTML = `<i class="fa-solid fa-check text-xs"></i> ${optVal}`;
-                    } else if (userAnswer && optVal.toLowerCase() === userAnswer.toLowerCase() && !isCorrect) {
-                        btn.className = 'px-3 py-1.5 text-xs sm:text-sm font-bold rounded-lg bg-rose-600 text-white border-rose-600 shadow-sm line-through opacity-90 cursor-default';
-                        btn.innerHTML = `<i class="fa-solid fa-xmark text-xs"></i> ${optVal}`;
-                    } else {
-                        btn.className = 'px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 opacity-50 cursor-default';
-                    }
-                });
+                if (isCorrect) {
+                    correctCount++;
+                    selectEl.classList.add('correct');
+                } else {
+                    selectEl.classList.add('incorrect');
+                    
+                    // Thêm nhãn hiển thị đáp án đúng kế bên dropdown khi trả lời sai
+                    const correctBadge = document.createElement('span');
+                    correctBadge.className = 'inline-flex items-center text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-1 rounded-md border border-emerald-300 dark:border-emerald-700 ml-1.5 shadow-sm';
+                    correctBadge.innerHTML = `<i class="fa-solid fa-check mr-1"></i> ${gap.correctAnswer}`;
+                    selectEl.parentNode.insertBefore(correctBadge, selectEl.nextSibling);
+                }
             });
 
             const resultBox = document.getElementById('resultBox');
@@ -1114,7 +1480,7 @@
                 resultBox.className = 'p-4 rounded-xl border flex items-center justify-between bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200';
                 resultIcon.className = 'fa-solid fa-circle-check text-2xl text-emerald-600';
                 resultTitle.innerText = 'Xuất sắc! (100%)';
-                resultDetail.innerText = `Bạn đã làm đúng hoàn toàn ${correctCount}/${totalGaps} chỗ trống.`;
+                resultDetail.innerText = `Bạn đã hoàn thành chính xác ${correctCount}/${totalGaps} chỗ trống.`;
                 confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
             } else if (scorePercent >= 60) {
                 resultBox.className = 'p-4 rounded-xl border flex items-center justify-between bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200';
